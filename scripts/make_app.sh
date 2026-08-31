@@ -7,7 +7,8 @@ APP_NAME="TabNest"
 DISPLAY_NAME="TabNest — Menu Bar Browser"
 BUNDLE_ID="com.menubar.browser"
 CONFIG="${1:-release}"
-BUILD_DIR=".build/${CONFIG}"
+VERSION="${TABNEST_VERSION:-1.0.0}"
+BUILD_NUMBER="${TABNEST_BUILD_NUMBER:-1}"
 APP_DIR="dist/${APP_NAME}.app"
 ICON_SOURCE="Resources/AppIcon.png"
 ICONSET_DIR=".build/AppIcon.iconset"
@@ -16,8 +17,14 @@ ICON_FILE=".build/AppIcon.icns"
 # AppIcon.png 必须是满幅方形图稿。macOS 会在 Finder、Dock、启动台等位置
 # 统一应用系统圆角遮罩；源图若自带透明圆角，会形成双层圆角和额外留白。
 
-echo "==> swift build -c ${CONFIG}"
-swift build -c "${CONFIG}"
+BUILD_ARGS=(-c "${CONFIG}")
+if [[ "${TABNEST_UNIVERSAL:-0}" == "1" ]]; then
+    BUILD_ARGS+=(--arch arm64 --arch x86_64)
+fi
+
+echo "==> swift build ${BUILD_ARGS[*]}"
+swift build "${BUILD_ARGS[@]}"
+BUILD_DIR="$(swift build "${BUILD_ARGS[@]}" --show-bin-path)"
 
 echo "==> 生成应用图标"
 rm -rf "${ICONSET_DIR}"
@@ -61,11 +68,13 @@ cat > "${APP_DIR}/Contents/Info.plist" <<PLIST
     <key>CFBundleDisplayName</key><string>${DISPLAY_NAME}</string>
     <key>CFBundleIconFile</key><string>AppIcon.icns</string>
     <key>CFBundlePackageType</key><string>APPL</string>
-    <key>CFBundleShortVersionString</key><string>1.0.0</string>
-    <key>CFBundleVersion</key><string>1</string>
+    <key>CFBundleShortVersionString</key><string>${VERSION}</string>
+    <key>CFBundleVersion</key><string>${BUILD_NUMBER}</string>
     <key>LSMinimumSystemVersion</key><string>13.0</string>
     <key>LSUIElement</key><true/>
     <key>NSHighResolutionCapable</key><true/>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>允许用户在网页中使用麦克风进行录音、语音输入或通话。</string>
     <key>NSHumanReadableCopyright</key><string>MIT License</string>
 </dict>
 </plist>
@@ -80,5 +89,6 @@ codesign --force --sign - "${APP_DIR}"
 
 echo ""
 echo "✅ 完成: ${APP_DIR}"
+echo "   版本: ${VERSION} (${BUILD_NUMBER})"
 echo "   运行: open ${APP_DIR}"
 echo "   安装: cp -R ${APP_DIR} /Applications/"

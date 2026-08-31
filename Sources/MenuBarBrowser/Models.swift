@@ -51,6 +51,24 @@ enum StatusIconMode: String, Codable, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+enum PageZoom {
+    static let defaultValue = 0.9
+    static let minimum = 0.5
+    static let maximum = 2.0
+    static let step = 0.1
+
+    static func normalized(_ value: Double) -> Double {
+        let stepped = (value / step).rounded() * step
+        return Swift.min(Swift.max(stepped, minimum), maximum)
+    }
+
+    static func increased(_ value: Double) -> Double { normalized(value + step) }
+    static func decreased(_ value: Double) -> Double { normalized(value - step) }
+    static func percent(_ value: Double) -> Int {
+        Int((normalized(value) * 100).rounded())
+    }
+}
+
 /// 与 Carbon 常量解耦的快捷键持久化格式。
 struct SiteHotkey: Codable, Equatable {
     static let command: UInt32 = 1 << 0
@@ -79,6 +97,7 @@ struct Pin: Identifiable, Codable, Equatable {
     var userAgentMode: UserAgentMode = .system
     var customUserAgent: String = ""
     var refreshInterval: TimeInterval = 0   // 0 = 关闭自动刷新
+    var pageZoom: Double = PageZoom.defaultValue
     var isMuted: Bool = false
     var iconURLString: String = ""
     var hotkeyMode: HotkeyMode = .automatic
@@ -115,13 +134,14 @@ struct Pin: Identifiable, Codable, Equatable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, name, urlString, userAgentMode, customUserAgent, refreshInterval
+        case id, name, urlString, userAgentMode, customUserAgent, refreshInterval, pageZoom
         case isMuted, iconURLString, hotkeyMode, customHotkey
     }
 
     init(id: UUID = UUID(), name: String, urlString: String,
          userAgentMode: UserAgentMode = .system, customUserAgent: String = "",
-         refreshInterval: TimeInterval = 0, isMuted: Bool = false,
+         refreshInterval: TimeInterval = 0, pageZoom: Double = PageZoom.defaultValue,
+         isMuted: Bool = false,
          iconURLString: String = "", hotkeyMode: HotkeyMode = .automatic,
          customHotkey: SiteHotkey? = nil) {
         self.id = id
@@ -130,6 +150,7 @@ struct Pin: Identifiable, Codable, Equatable {
         self.userAgentMode = userAgentMode
         self.customUserAgent = customUserAgent
         self.refreshInterval = refreshInterval
+        self.pageZoom = PageZoom.normalized(pageZoom)
         self.isMuted = isMuted
         self.iconURLString = iconURLString
         self.hotkeyMode = hotkeyMode
@@ -144,6 +165,9 @@ struct Pin: Identifiable, Codable, Equatable {
         userAgentMode = try c.decodeIfPresent(UserAgentMode.self, forKey: .userAgentMode) ?? .system
         customUserAgent = try c.decodeIfPresent(String.self, forKey: .customUserAgent) ?? ""
         refreshInterval = try c.decodeIfPresent(TimeInterval.self, forKey: .refreshInterval) ?? 0
+        pageZoom = PageZoom.normalized(
+            try c.decodeIfPresent(Double.self, forKey: .pageZoom) ?? PageZoom.defaultValue
+        )
         isMuted = try c.decodeIfPresent(Bool.self, forKey: .isMuted) ?? false
         iconURLString = try c.decodeIfPresent(String.self, forKey: .iconURLString) ?? ""
         hotkeyMode = try c.decodeIfPresent(HotkeyMode.self, forKey: .hotkeyMode) ?? .automatic

@@ -7,6 +7,9 @@ final class BrowserPanel: NSPanel {
     var onHardReload: (() -> Void)?
     var onBack: (() -> Void)?
     var onForward: (() -> Void)?
+    var onZoomIn: (() -> Void)?
+    var onZoomOut: (() -> Void)?
+    var onResetZoom: (() -> Void)?
 
     override var canBecomeKey: Bool { true }
 
@@ -37,6 +40,9 @@ final class BrowserPanel: NSPanel {
             case "w": onEscape?(); return true
             case "[": onBack?(); return true
             case "]": onForward?(); return true
+            case "+", "=": onZoomIn?(); return true
+            case "-": onZoomOut?(); return true
+            case "0": onResetZoom?(); return true
             default: break
             }
         }

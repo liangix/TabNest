@@ -279,6 +279,7 @@ final class StatusItemManager: NSObject {
 
         if let pin = pinID.flatMap({ pinStore.pin(with: $0) }) {
             add("重新载入", action: #selector(menuReload(_:)), represented: pin.id)
+            menu.addItem(buildPageZoomMenuItem(for: pin))
             add(pin.isMuted ? "取消静音" : "静音",
                 action: #selector(menuToggleMute(_:)), represented: pin.id)
             add("在默认浏览器打开", action: #selector(menuOpenExternal(_:)), represented: pin.id)
@@ -307,6 +308,34 @@ final class StatusItemManager: NSObject {
         add("关于 TabNest", action: #selector(menuAbout(_:)))
         add("退出", action: #selector(menuQuit(_:)), key: "q")
         return menu
+    }
+
+    private func buildPageZoomMenuItem(for pin: Pin) -> NSMenuItem {
+        let root = NSMenuItem(
+            title: "页面缩放（\(PageZoom.percent(pin.pageZoom))%）",
+            action: nil,
+            keyEquivalent: ""
+        )
+        let submenu = NSMenu(title: "页面缩放")
+        submenu.autoenablesItems = false
+
+        func add(_ title: String, action: Selector, enabled: Bool = true) {
+            let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
+            item.target = self
+            item.representedObject = pin.id.uuidString
+            item.isEnabled = enabled
+            submenu.addItem(item)
+        }
+
+        add("放大  ⌘+", action: #selector(menuZoomIn(_:)),
+            enabled: pin.pageZoom < PageZoom.maximum)
+        add("缩小  ⌘−", action: #selector(menuZoomOut(_:)),
+            enabled: pin.pageZoom > PageZoom.minimum)
+        add("恢复默认（\(PageZoom.percent(PageZoom.defaultValue))%）  ⌘0",
+            action: #selector(menuResetZoom(_:)),
+            enabled: PageZoom.normalized(pin.pageZoom) != PageZoom.defaultValue)
+        root.submenu = submenu
+        return root
     }
 
     private func buildPresetsMenuItem() -> NSMenuItem {
@@ -360,6 +389,18 @@ final class StatusItemManager: NSObject {
         guard let id = uuid(from: sender) else { return }
         registry?.controller(for: id)?.toggleMute()
         sync(with: pinStore.pins)
+    }
+    @objc private func menuZoomIn(_ sender: NSMenuItem) {
+        guard let id = uuid(from: sender) else { return }
+        registry?.controller(for: id)?.zoomIn()
+    }
+    @objc private func menuZoomOut(_ sender: NSMenuItem) {
+        guard let id = uuid(from: sender) else { return }
+        registry?.controller(for: id)?.zoomOut()
+    }
+    @objc private func menuResetZoom(_ sender: NSMenuItem) {
+        guard let id = uuid(from: sender) else { return }
+        registry?.controller(for: id)?.resetZoom()
     }
     @objc private func menuOpenExternal(_ sender: NSMenuItem) {
         guard let id = uuid(from: sender) else { return }

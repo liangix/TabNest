@@ -1,99 +1,150 @@
-# TabNest — Menu Bar Browser
+<p align="center">
+  <img src="Resources/AppIcon.png" width="128" height="128" alt="TabNest icon">
+</p>
 
-原生 macOS 菜单栏浏览器：打开的 Tab 可以展开为各自的 favicon 图标，也可以收拢为一个应用图标；点击后在图标正下方弹出带连接箭头的网页浮窗。无浏览器 chrome、不抢焦点、登录态持久保存。
+<h1 align="center">TabNest — Menu Bar Browser</h1>
 
-纯 Swift 实现，**AppKit + WebKit + SwiftUI**，零第三方依赖。
+<p align="center">
+  把常用网页收进 macOS 菜单栏，需要时在图标下方即时展开。
+</p>
 
-![tech](https://img.shields.io/badge/macOS-13%2B-black) ![swift](https://img.shields.io/badge/Swift-5.9-orange)
+<p align="center">
+  <a href="https://github.com/liangix/TabNest/actions/workflows/release.yml"><img src="https://github.com/liangix/TabNest/actions/workflows/release.yml/badge.svg" alt="Release DMG"></a>
+  <a href="https://github.com/liangix/TabNest/releases/latest"><img src="https://img.shields.io/github/v/release/liangix/TabNest" alt="Latest release"></a>
+  <img src="https://img.shields.io/badge/macOS-13%2B-black" alt="macOS 13+">
+  <img src="https://img.shields.io/badge/Swift-5.9%2B-F05138" alt="Swift 5.9+">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT License"></a>
+</p>
 
-## 交互模型
+TabNest 是一个原生 macOS 菜单栏浏览器。每个网页拥有独立的浮动面板、站点图标和快捷键，也可以把所有 Tab 收拢到一个应用图标。面板使用常驻 `WKWebView`，收起再打开不会丢失当前页面和登录状态。
 
-```
-菜单栏:   [🅖 GitHub] [🎵 YT Music] [🤖 ChatGPT]      ← 每站点一个 favicon 图标
-              │(左键)        │            │
-              ▼              ▼            ▼
-          ┌────────┐    ┌────────┐
-          │▲箭头    │    │▲       │                ← 箭头标记面板归属哪个图标
-          │ webpage│    │webpage │                ← 面板内纯网页，可多开并存
-          └────────┘    └────────┘
-```
+纯 Swift 实现，基于 **AppKit + WebKit + SwiftUI**，没有第三方运行时依赖。
 
-- **左键图标**：弹出 / 收起该站点的浮动面板（多个面板可同时打开）
-- **右键（或 ⌥+左键）**：该站点的完整操作菜单
-- **图标模式**：支持“每个 Tab 一个图标”和“全部 Tab 收拢为一个图标”
-- **全局快捷键**：默认使用 ⌥⇧1–9，也可为每个站点录入任意组合键或关闭
-- **点击面板外部**：自动收起所有面板（可在菜单关闭）
-- 无站点时显示占位图标，右键即可「新建站点」
+## 下载与安装
 
-## 功能
+1. 从 [GitHub Releases](https://github.com/liangix/TabNest/releases/latest) 下载最新的 `TabNest-<version>.dmg`。
+2. 打开 DMG，将 `TabNest.app` 拖入 `Applications`。
+3. 启动 TabNest，菜单栏会出现站点图标。
 
-- 每站点独立面板：位置/大小按站点记忆，常驻 WebView 切换零状态丢失
-- 预设站点与打开的 Tab 分离：关闭 Tab 不删除预设，可随时从预设管理器重新打开
-- favicon 图标自动抓取（页面 icon → `/favicon.ico` 回退），失败时首字母色块占位
-- 登录态持久化（共享 WKWebsiteDataStore）
-- 浏览器标识：系统 / 桌面 / 移动端 / 自定义 UA
-- 自动刷新（30s / 1min / 5min）、静音、强制刷新、在默认浏览器打开
-- 面板内快捷键：`Esc`/`⌘W` 关闭 · `⌘R` 刷新 · `⇧⌘R` 强刷 · `⌘[`/`⌘]` 前进后退 · ⌘+滚轮缩放
-- 每站点快捷键可设为自动 / 自定义 / 关闭，基于 Carbon HotKey，无需辅助功能权限
-- 登录自启（SMAppService）
+当前 Release 使用 ad-hoc 签名，尚未进行 Apple Developer ID 公证。如果 macOS 首次阻止打开，请在 Finder 的“应用程序”中右键 TabNest，选择“打开”并确认。不要从来源不明的位置下载二次打包版本。
 
-## 构建与运行
+系统要求：**macOS 13 Ventura 或更高版本**。Release DMG 包含 `arm64` 与 `x86_64` 双架构，可运行于 Apple Silicon 和 Intel Mac。
+
+## 核心能力
+
+- **菜单栏原生体验**：面板始终停靠在所属图标正下方，拖动缩放时保持居中对齐。
+- **展开或收拢**：每个 Tab 可以显示为独立 favicon，也可以收拢为单个 TabNest 图标。
+- **预设与 Tab 分离**：关闭 Tab 不会删除预设站点，随时可以从右键菜单重新打开。
+- **站点快捷键**：默认使用 `⌥⇧1–9`，支持为每个站点录制自定义全局快捷键或关闭快捷键。
+- **可靠的站点图标**：优先读取页面真实 Tab favicon，带缓存与回退策略，避免加载闪烁。
+- **浏览器标识**：支持系统 Safari、固定桌面 Safari、移动端 Safari 和自定义 User-Agent；修改后立即重新载入生效。
+- **页面缩放**：每个站点独立保存，默认 90%，范围 50%–200%。
+- **媒体控制**：支持静音；关闭 Tab 时同步停止音视频和网络加载。
+- **网页录音**：HTTPS 页面可以请求麦克风，先确认网页来源，再进入 macOS 系统授权。
+- **其他能力**：自动刷新、强制刷新、前进后退、登录态持久化、登录时启动。
+
+## 默认预设
+
+首次安装且不存在旧偏好数据时，TabNest 会创建以下预设并打开为 Tab：
+
+| 站点 | 地址 | 默认浏览器标识 |
+|---|---|---|
+| Bing | `https://www.bing.com` | 系统 Safari |
+| GitHub | `https://github.com` | 系统 Safari |
+| YouTube Music | `https://music.youtube.com` | 桌面 Safari |
+| ChatGPT | `https://chatgpt.com` | 系统 Safari |
+
+覆盖安装不会重置用户已经维护的预设和 Tab。
+
+## 使用方式
+
+| 操作 | 结果 |
+|---|---|
+| 左键菜单栏图标 | 展开或收起对应网页面板 |
+| 右键 / `⌥` + 左键图标 | 打开站点操作菜单 |
+| `Esc` / `⌘W` | 收起当前面板 |
+| `⌘R` | 重新载入 |
+| `⇧⌘R` | 重新应用 UA 并忽略缓存载入 |
+| `⌘[` / `⌘]` | 后退 / 前进 |
+| `⌘+` / `⌘−` | 放大 / 缩小页面 |
+| `⌘0` | 恢复默认 90% 缩放 |
+| `⌥⇧1–9` | 唤起对应顺序的站点 |
+
+右键菜单还可以新建站点、维护预设、切换图标模式、静音、在默认浏览器打开以及设置登录启动。
+
+## 权限与隐私
+
+- 登录状态和站点配置保存在本机，不上传到 TabNest 服务；项目本身不包含远程后端。
+- 所有 WebView 使用系统 `WKWebsiteDataStore` 保存 Cookie 和网站数据。
+- 网页只能从 HTTPS 来源申请麦克风；每次请求都会显示来源确认，摄像头请求默认拒绝。
+- 麦克风系统授权可在“系统设置 → 隐私与安全性 → 麦克风”中撤销。
+- 网页尝试唤起未安装的外部 App Scheme 时会被拦截，避免出现系统 URL 弹窗。
+
+## 本地开发
 
 ```bash
-swift run                        # 开发调试
-./scripts/make_app.sh            # 打包 .app（release + ad-hoc 签名）
+git clone https://github.com/liangix/TabNest.git
+cd TabNest
+
+swift test                       # 运行测试
+swift run                        # 开发运行
+./scripts/make_app.sh release    # 构建 dist/TabNest.app
 open dist/TabNest.app
-cp -R dist/TabNest.app /Applications/          # 可选安装
 ```
 
-> 「登录时启动」需应用位于 `/Applications` 才能稳定生效。
+构建通用架构 DMG：
+
+```bash
+TABNEST_VERSION=1.0.0 ./scripts/make_dmg.sh release
+```
+
+输出文件：
+
+- `dist/TabNest-1.0.0.dmg`
+- `dist/TabNest-1.0.0.dmg.sha256`
+
+两个文件位于同一目录时可验证下载完整性：
+
+```bash
+shasum -a 256 -c TabNest-1.0.0.dmg.sha256
+```
+
+## Release 流水线
+
+`.github/workflows/release.yml` 在推送 `v*` 版本标签时自动执行：
+
+1. 运行完整测试；
+2. 构建 Apple Silicon + Intel 通用应用；
+3. 生成并验证压缩 DMG；
+4. 生成 SHA-256 校验文件；
+5. 创建 GitHub Release 并上传两个文件。
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+也可以从 GitHub Actions 页面手动运行，并指定符合语义化版本格式的标签。
 
 ## 项目结构
 
+```text
+.
+├── Package.swift
+├── Resources/AppIcon.png
+├── Sources/MenuBarBrowser/       # AppKit / WebKit / SwiftUI 应用源码
+├── Tests/MenuBarBrowserTests/    # 模型、WebView 生命周期与资源处理测试
+├── scripts/make_app.sh           # 生成并签名 .app
+├── scripts/make_dmg.sh           # 生成通用架构 DMG 与校验文件
+└── .github/workflows/release.yml # GitHub Release 流水线
 ```
-MenuBarBrowser/
-├── Package.swift                     # SwiftPM，macOS 13+
-├── Sources/MenuBarBrowser/
-│   ├── main.swift                    # 入口（accessory 模式）+ mbbTrace 诊断日志
-│   ├── AppDelegate.swift             # 组装、Edit 菜单、开机自启、首启引导
-│   ├── StatusItemManager.swift       # 多图标管理：favicon 渲染、左右键分发、右键菜单
-│   ├── WindowManager.swift           # 站点窗口注册表：懒创建、点击外部隐藏、快捷键分发
-│   ├── PinWindowController.swift     # 单站点窗口单元：面板+箭头+常驻 WebView+动作
-│   ├── PinWindow.swift               # BrowserPanel（非激活 key panel）+ ArrowView
-│   ├── HotkeyManager.swift           # Carbon 全局快捷键注册与分发
-│   ├── HotkeyRecorder.swift          # 快捷键录入控件
-│   ├── FaviconCache.swift            # favicon 异步加载缓存与占位图渲染
-│   ├── FormWindow.swift              # 添加/编辑/关于 的独立小窗口
-│   ├── PresetManagerView.swift       # 预设站点查看、打开、编辑与删除
-│   ├── WebTabController.swift        # 单个 WKWebView 封装：KVO、UA、favicon 抓取、静音
-│   ├── PinStore.swift                # 站点列表持久化
-│   ├── SettingsStore.swift           # 应用设置持久化
-│   ├── Models.swift                  # Pin / TabState / AppSettings
-│   ├── PanelViews.swift              # 面板根视图（纯网页+进度条）、关于页
-│   └── PinFormView.swift             # 添加/编辑站点与快捷键配置表单
-├── Tests/MenuBarBrowserTests/         # 模型与持久化单元测试
-└── scripts/make_app.sh               # .app 打包脚本
-```
-
-### 关键设计
-
-| 问题 | 方案 |
-|---|---|
-| 弹出不抢焦点 | `NSPanel(.nonactivatingPanel)` 子类化 `canBecomeKey` |
-| 面板归属标识 | 单一连续轮廓蒙版内嵌圆润箭头，尖端补偿圆角偏移后贴近图标 |
-| 箭头颜色融合 | JS 采样页面顶部背景色（rgb/hex，DOM 上溯）动态渲染底色 |
-| 一 Tab 一面板 | `WindowManager` 按 pinID 懒创建控制器；关闭 Tab 时释放，预设继续保留 |
-| 单/多图标 | `StatusItemManager` 在应用图标与每 Tab favicon 之间切换并重新绑定面板锚点 |
-| 图标页面样式 | FaviconCache 异步抓取 → NSStatusBarButton.image |
-| 全局快捷键 | 每站点持久化配置；Carbon RegisterEventHotKey，C 回调经 Task@MainActor 转发 |
-| 探入菜单栏 | 重写 `constrainFrameRect` 解除系统钳制 |
 
 ## Roadmap
 
-- [ ] 每站点独立数据存储（Cookie 隔离）
+- [ ] Developer ID 签名与 Apple 公证
+- [ ] 每站点独立网站数据存储
 - [ ] 页面内查找
-- [ ] DMG 发布流水线
 
 ## License
 
-MIT
+[MIT](LICENSE)

@@ -68,6 +68,27 @@ final class ModelStoreTests: XCTestCase {
         XCTAssertEqual(pin.hotkeyMode, .automatic)
         XCTAssertNil(pin.customHotkey)
         XCTAssertFalse(pin.isMuted)
+        XCTAssertEqual(pin.pageZoom, PageZoom.defaultValue)
+    }
+
+    func testPageZoomIsSteppedAndClamped() {
+        XCTAssertEqual(PageZoom.increased(0.9), 1.0)
+        XCTAssertEqual(PageZoom.decreased(0.9), 0.8)
+        XCTAssertEqual(PageZoom.normalized(0.94), 0.9)
+        XCTAssertEqual(PageZoom.normalized(4), PageZoom.maximum)
+        XCTAssertEqual(PageZoom.normalized(0.1), PageZoom.minimum)
+        XCTAssertEqual(PageZoom.percent(0.9), 90)
+    }
+
+    @MainActor
+    func testFreshInstallDefaultPresetNames() throws {
+        let suiteName = "MenuBarBrowserTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        XCTAssertEqual(PinStore(defaults: defaults).presets.map(\.name), [
+            "Bing", "GitHub", "YouTube Music", "ChatGPT",
+        ])
     }
 
     func testCanonicalURLNormalizesHostCaseAndRootSlash() {

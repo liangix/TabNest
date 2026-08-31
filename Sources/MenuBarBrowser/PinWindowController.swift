@@ -121,6 +121,9 @@ final class PinWindowController: NSObject {
         panel.onHardReload = { [weak self] in self?.hardReload() }
         panel.onBack = { [weak self] in self?.goBack() }
         panel.onForward = { [weak self] in self?.goForward() }
+        panel.onZoomIn = { [weak self] in self?.zoomIn() }
+        panel.onZoomOut = { [weak self] in self?.zoomOut() }
+        panel.onResetZoom = { [weak self] in self?.resetZoom() }
 
         let center = NotificationCenter.default
         observers.append(center.addObserver(forName: NSWindow.didMoveNotification, object: panel, queue: .main) { [weak self] _ in
@@ -143,6 +146,7 @@ final class PinWindowController: NSObject {
         currentPin = pin
         let userAgentChanged = webTab.applyUserAgent(for: pin)
         webTab.updateAutoRefresh(interval: pin.refreshInterval)
+        webTab.setPageZoom(pin.pageZoom)
         webTab.setMuted(pin.isMuted)
         panel.title = pin.name
 
@@ -269,6 +273,9 @@ final class PinWindowController: NSObject {
         panel.onHardReload = nil
         panel.onBack = nil
         panel.onForward = nil
+        panel.onZoomIn = nil
+        panel.onZoomOut = nil
+        panel.onResetZoom = nil
         hostingView?.rootView = AnyView(EmptyView())
         hostingView?.removeFromSuperview()
         hostingView = nil
@@ -285,6 +292,18 @@ final class PinWindowController: NSObject {
     func hardReload()  { webTab.reloadApplyingUserAgent(for: currentPin) }
     func goBack()      { webTab.webView.goBack() }
     func goForward()   { webTab.webView.goForward() }
+
+    func zoomIn()    { updatePageZoom(PageZoom.increased(currentPin.pageZoom)) }
+    func zoomOut()   { updatePageZoom(PageZoom.decreased(currentPin.pageZoom)) }
+    func resetZoom() { updatePageZoom(PageZoom.defaultValue) }
+
+    private func updatePageZoom(_ value: Double) {
+        let normalized = PageZoom.normalized(value)
+        guard normalized != currentPin.pageZoom else { return }
+        var pin = currentPin
+        pin.pageZoom = normalized
+        PinStore.shared.update(pin)
+    }
 
     func goHome() {
         guard let url = currentPin.url else { return }

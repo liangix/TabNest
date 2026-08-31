@@ -173,6 +173,7 @@ struct PinFormView: View {
             userAgentMode: uaMode,
             customUserAgent: customUA.trimmingCharacters(in: .whitespacesAndNewlines),
             refreshInterval: refreshInterval,
+            pageZoom: editingPageZoom,
             isMuted: editingMuted,
             iconURLString: editingIconURL,
             hotkeyMode: hotkeyMode,
@@ -219,6 +220,11 @@ struct PinFormView: View {
     private var editingMuted: Bool {
         if case .edit(let pin) = mode { return pin.isMuted }
         return false
+    }
+
+    private var editingPageZoom: Double {
+        if case .edit(let pin) = mode { return pin.pageZoom }
+        return PageZoom.defaultValue
     }
 
     private var editingIconURL: String {

@@ -1,0 +1,80 @@
+name: Release DMG
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "要创建或更新的版本标签，例如 v1.0.0"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build universal DMG and publish
+    runs-on: macos-15
+    env:
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Resolve version
+        id: version
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${GITHUB_REF_NAME}"
+          fi
+          if [[ ! "${TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid release tag: ${TAG}" >&2
+            exit 1
+          fi
+          echo "tag=${TAG}" >> "${GITHUB_OUTPUT}"
+          echo "number=${TAG#v}" >> "${GITHUB_OUTPUT}"
+
+      - name: Test
+        run: swift test
+
+      - name: Build universal DMG
+        env:
+          TABNEST_VERSION: ${{ steps.version.outputs.number }}
+          TABNEST_BUILD_NUMBER: ${{ github.run_number }}
+          TABNEST_UNIVERSAL: "1"
+        run: ./scripts/make_dmg.sh release
+
+      - name: Verify universal binary
+        run: |
+          ARCHS="$(lipo -archs dist/TabNest.app/Contents/MacOS/MenuBarBrowser)"
+          [[ " ${ARCHS} " == *" arm64 "* ]]
+          [[ " ${ARCHS} " == *" x86_64 "* ]]
+
+      - name: Publish GitHub Release
+        env:
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+          RELEASE_VERSION: ${{ steps.version.outputs.number }}
+        run: |
+          DMG="dist/TabNest-${RELEASE_VERSION}.dmg"
+          CHECKSUM="${DMG}.sha256"
+          if gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
+            gh release upload "${RELEASE_TAG}" "${DMG}" "${CHECKSUM}" --clobber
+          else
+            gh release create "${RELEASE_TAG}" "${DMG}" "${CHECKSUM}" \
+              --target "${GITHUB_SHA}" \
+              --title "TabNest ${RELEASE_VERSION}" \
+              --generate-notes
+          fi

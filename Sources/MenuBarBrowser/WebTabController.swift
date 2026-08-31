@@ -42,6 +42,7 @@ final class WebTabController: NSObject {
         webView.allowsBackForwardNavigationGestures = true
         webView.setValue(true, forKey: "allowsMagnification") // ⌘+滚轮缩放页面
         applyUserAgent(for: pin)
+        setPageZoom(pin.pageZoom)
 
         if let url = pin.url {
             webView.load(URLRequest(url: url))
@@ -87,6 +88,10 @@ final class WebTabController: NSObject {
 
     func updateAutoRefresh(interval: TimeInterval) {
         scheduleAutoRefresh(interval: interval)
+    }
+
+    func setPageZoom(_ value: Double) {
+        webView.pageZoom = CGFloat(PageZoom.normalized(value))
     }
 
     /// 静音当前页面媒体元素，并注入脚本保证后续导航保持静音。
@@ -416,6 +421,36 @@ extension WebTabController: WKNavigationDelegate {
 }
 
 extension WebTabController: WKUIDelegate {
+    func webView(_ webView: WKWebView,
+                 requestMediaCapturePermissionFor origin: WKSecurityOrigin,
+                 initiatedByFrame frame: WKFrameInfo,
+                 type: WKMediaCaptureType,
+                 decisionHandler: @escaping @MainActor @Sendable (WKPermissionDecision) -> Void) {
+        // 仅开放用户要求的麦克风录音。摄像头或组合请求不在本次授权范围内。
+        guard type == .microphone else {
+            decisionHandler(.deny)
+            return
+        }
+
+        let scheme = origin.protocol.lowercased()
+        let host = origin.host.lowercased()
+        let isLocalhost = ["localhost", "127.0.0.1", "::1"].contains(host)
+        guard scheme == "https" || (scheme == "http" && isLocalhost) else {
+            decisionHandler(.deny)
+            return
+        }
+
+        let port = origin.port > 0 ? ":\(origin.port)" : ""
+        let source = "\(scheme)://\(origin.host)\(port)"
+        let alert = NSAlert()
+        alert.alertStyle = .informational
+        alert.messageText = "允许此网页使用麦克风？"
+        alert.informativeText = "\(source) 请求录音。允许后，macOS 可能继续显示系统麦克风授权提示。"
+        alert.addButton(withTitle: "允许")
+        alert.addButton(withTitle: "拒绝")
+        decisionHandler(alert.runModal() == .alertFirstButtonReturn ? .grant : .deny)
+    }
+
     // target="_blank" 的链接直接在当前标签打开
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,
                  for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
