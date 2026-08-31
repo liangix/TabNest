@@ -277,7 +277,9 @@ final class ModelStoreTests: XCTestCase {
     }
 
     @MainActor
-    func testClosingTabStopsWebViewAndReleasesController() {
+    func testClosingTabStopsWebViewAndReleasesController() throws {
+        try XCTSkipIf(ProcessInfo.processInfo.environment["CI"] == "true",
+                      "NSStatusItem 生命周期测试需要登录的 macOS WindowServer 会话")
         let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         defer { NSStatusBar.system.removeStatusItem(statusItem) }
 
