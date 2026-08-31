@@ -139,12 +139,6 @@ git push origin v1.0.0
 └── .github/workflows/release.yml # GitHub Release 流水线
 ```
 
-## Roadmap
-
-- [ ] Developer ID 签名与 Apple 公证
-- [ ] 每站点独立网站数据存储
-- [ ] 页面内查找
-
 ## License
 
 [MIT](LICENSE)
