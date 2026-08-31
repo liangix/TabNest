@@ -12,9 +12,9 @@ struct PresetManagerView: View {
                     Image(systemName: "bookmark.slash")
                         .font(.system(size: 28))
                         .foregroundColor(.secondary)
-                    Text("还没有预设站点")
+                    Text(L10n.text(.presetsEmpty))
                         .foregroundColor(.secondary)
-                    Button("添加站点", action: onAdd)
+                    Button(L10n.text(.windowAddSite), action: onAdd)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
@@ -29,18 +29,18 @@ struct PresetManagerView: View {
                         }
                         Spacer()
                         if store.pin(with: preset.id) == nil {
-                            Button("打开") { store.openPreset(preset.id) }
+                            Button(L10n.text(.commonOpen)) { store.openPreset(preset.id) }
                         } else {
-                            Button("关闭") { store.close(preset.id) }
+                            Button(L10n.text(.commonClose)) { store.close(preset.id) }
                         }
-                        Button("编辑") { onEdit(preset) }
+                        Button(L10n.text(.commonEdit)) { onEdit(preset) }
                         Button(role: .destructive) {
                             store.deletePreset(preset.id)
                         } label: {
                             Image(systemName: "trash")
                         }
                         .buttonStyle(.borderless)
-                        .help("删除预设")
+                        .help(L10n.text(.presetsDeleteHelp))
                     }
                     .padding(.vertical, 4)
                 }
@@ -48,11 +48,11 @@ struct PresetManagerView: View {
 
             Divider()
             HStack {
-                Text("关闭 Tab 不会删除预设")
+                Text(L10n.text(.presetsCloseKeepsPreset))
                     .font(.caption)
                     .foregroundColor(.secondary)
                 Spacer()
-                Button("添加站点…", action: onAdd)
+                Button(L10n.text(.presetsAddSiteEllipsis), action: onAdd)
             }
             .padding(12)
         }

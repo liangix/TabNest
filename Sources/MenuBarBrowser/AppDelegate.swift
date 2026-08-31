@@ -79,16 +79,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func installEditMenu() {
         let mainMenu = NSMenu()
         let editItem = NSMenuItem()
-        let editMenu = NSMenu(title: "编辑")
+        let editMenu = NSMenu(title: L10n.text(.editMenu))
         editItem.submenu = editMenu
 
-        editMenu.addItem(withTitle: "撤销", action: NSSelectorFromString("undo:"), keyEquivalent: "z")
-        editMenu.addItem(withTitle: "重做", action: NSSelectorFromString("redo:"), keyEquivalent: "Z")
+        editMenu.addItem(withTitle: L10n.text(.editUndo), action: NSSelectorFromString("undo:"), keyEquivalent: "z")
+        editMenu.addItem(withTitle: L10n.text(.editRedo), action: NSSelectorFromString("redo:"), keyEquivalent: "Z")
         editMenu.addItem(.separator())
-        editMenu.addItem(withTitle: "剪切", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
-        editMenu.addItem(withTitle: "拷贝", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
-        editMenu.addItem(withTitle: "粘贴", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
-        editMenu.addItem(withTitle: "全选", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        editMenu.addItem(withTitle: L10n.text(.editCut), action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        editMenu.addItem(withTitle: L10n.text(.editCopy), action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        editMenu.addItem(withTitle: L10n.text(.editPaste), action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        editMenu.addItem(withTitle: L10n.text(.editSelectAll), action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
 
         mainMenu.addItem(editItem)
         NSApp.mainMenu = mainMenu

@@ -41,7 +41,7 @@ final class StatusItemManager: NSObject {
         if settingsRead.statusIconMode == .collapsed {
             removeExpandedItems()
             syncCollapsedItem(visible: true)
-            collapsedItem?.button?.toolTip = "TabNest（\(pins.count) 个 Tab）"
+            collapsedItem?.button?.toolTip = L10n.text(.statusTabsCount, pins.count)
             syncPlaceholder(pinsNeedPlaceholder: false)
             registry?.rebindStatusItems()
             return
@@ -100,7 +100,7 @@ final class StatusItemManager: NSObject {
             item.button?.image = NSImage(systemSymbolName: "rectangle.stack.fill",
                                          accessibilityDescription: "TabNest")
             item.button?.image?.isTemplate = true
-            item.button?.toolTip = "TabNest（\(pinStore.pins.count) 个 Tab）"
+            item.button?.toolTip = L10n.text(.statusTabsCount, pinStore.pins.count)
             item.button?.target = self
             item.button?.action = #selector(handleClick(_:))
             item.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
@@ -117,7 +117,7 @@ final class StatusItemManager: NSObject {
         if updateImage || button.image == nil {
             button.image = displayImage(for: pin, side: 18)
         }
-        button.toolTip = hotkey.map { "\(pin.name)（\($0) 全局唤起）" } ?? pin.name
+        button.toolTip = hotkey.map { L10n.text(.statusGlobalShortcutTooltip, pin.name, $0) } ?? pin.name
     }
 
     /// favicon 抓取完成后由外部调用，刷新对应图标。
@@ -145,7 +145,7 @@ final class StatusItemManager: NSObject {
                 let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
                 item.autosaveName = "MenuBarBrowser.placeholder"
                 item.button?.image = NSImage(systemSymbolName: "menubar.dock.rectangle",
-                                             accessibilityDescription: "TabNest 菜单栏浏览器")
+                                             accessibilityDescription: L10n.text(.statusAccessibilityDescription))
                 item.button?.image?.isTemplate = true
                 item.button?.toolTip = "TabNest — Menu Bar Browser"
                 item.button?.target = self
@@ -213,7 +213,7 @@ final class StatusItemManager: NSObject {
         let menu = NSMenu()
         menu.autoenablesItems = false
         if pinStore.pins.isEmpty {
-            let empty = NSMenuItem(title: "没有打开的 Tab", action: nil, keyEquivalent: "")
+            let empty = NSMenuItem(title: L10n.text(.menuNoOpenTabs), action: nil, keyEquivalent: "")
             empty.isEnabled = false
             menu.addItem(empty)
         } else {
@@ -229,7 +229,7 @@ final class StatusItemManager: NSObject {
             }
         }
         menu.addItem(.separator())
-        let presets = NSMenuItem(title: "预设站点…", action: #selector(menuManagePresets(_:)), keyEquivalent: "")
+        let presets = NSMenuItem(title: L10n.text(.menuPresetsEllipsis), action: #selector(menuManagePresets(_:)), keyEquivalent: "")
         presets.target = self
         menu.addItem(presets)
         return menu
@@ -278,45 +278,47 @@ final class StatusItemManager: NSObject {
         }
 
         if let pin = pinID.flatMap({ pinStore.pin(with: $0) }) {
-            add("重新载入", action: #selector(menuReload(_:)), represented: pin.id)
+            add(L10n.text(.menuReload), action: #selector(menuReload(_:)), represented: pin.id)
             menu.addItem(buildPageZoomMenuItem(for: pin))
-            add(pin.isMuted ? "取消静音" : "静音",
+            add(pin.isMuted ? L10n.text(.menuUnmute) : L10n.text(.menuMute),
                 action: #selector(menuToggleMute(_:)), represented: pin.id)
-            add("在默认浏览器打开", action: #selector(menuOpenExternal(_:)), represented: pin.id)
-            add("编辑站点…", action: #selector(menuEditPin(_:)), represented: pin.id)
+            add(L10n.text(.menuOpenInDefaultBrowser), action: #selector(menuOpenExternal(_:)), represented: pin.id)
+            add(L10n.text(.menuEditSiteEllipsis), action: #selector(menuEditPin(_:)), represented: pin.id)
 
             if let hotkey = HotkeyManager.shared.label(for: pin.id) {
-                add("全局唤起 \(hotkey)", enabled: false)
+                add(L10n.text(.menuGlobalShortcut, hotkey), enabled: false)
             }
-            add("关闭「\(pin.name)」", action: #selector(menuCloseTab(_:)), represented: pin.id)
+            add(L10n.text(.menuCloseSite, pin.name), action: #selector(menuCloseTab(_:)), represented: pin.id)
             menu.addItem(.separator())
         }
 
-        add("新建站点…", action: #selector(menuNewPin(_:)))
+        add(L10n.text(.menuNewSiteEllipsis), action: #selector(menuNewPin(_:)))
         menu.addItem(buildPresetsMenuItem())
-        add("管理预设站点…", action: #selector(menuManagePresets(_:)))
-        add(settingsRead.statusIconMode == .expanded ? "收拢为一个图标" : "展开为每个 Tab 图标",
+        add(L10n.text(.menuManagePresetsEllipsis), action: #selector(menuManagePresets(_:)))
+        add(settingsRead.statusIconMode == .expanded
+                ? L10n.text(.menuCollapseIcons)
+                : L10n.text(.menuExpandIcons),
             action: #selector(menuToggleIconMode(_:)))
         menu.addItem(.separator())
-        add("点击面板外部时自动隐藏",
+        add(L10n.text(.menuHideOutside),
             action: #selector(menuToggleHideOnOutside(_:)),
             state: settingsRead.hideOnOutsideClick)
-        add("登录时启动",
+        add(L10n.text(.menuLaunchAtLogin),
             action: #selector(menuToggleLaunchAtLogin(_:)),
             state: launchAtLoginEnabled)
         menu.addItem(.separator())
-        add("关于 TabNest", action: #selector(menuAbout(_:)))
-        add("退出", action: #selector(menuQuit(_:)), key: "q")
+        add(L10n.text(.menuAbout), action: #selector(menuAbout(_:)))
+        add(L10n.text(.menuQuit), action: #selector(menuQuit(_:)), key: "q")
         return menu
     }
 
     private func buildPageZoomMenuItem(for pin: Pin) -> NSMenuItem {
         let root = NSMenuItem(
-            title: "页面缩放（\(PageZoom.percent(pin.pageZoom))%）",
+            title: L10n.text(.menuPageZoomWithPercent, PageZoom.percent(pin.pageZoom)),
             action: nil,
             keyEquivalent: ""
         )
-        let submenu = NSMenu(title: "页面缩放")
+        let submenu = NSMenu(title: L10n.text(.menuPageZoom))
         submenu.autoenablesItems = false
 
         func add(_ title: String, action: Selector, enabled: Bool = true) {
@@ -327,11 +329,11 @@ final class StatusItemManager: NSObject {
             submenu.addItem(item)
         }
 
-        add("放大  ⌘+", action: #selector(menuZoomIn(_:)),
+        add(L10n.text(.menuZoomIn), action: #selector(menuZoomIn(_:)),
             enabled: pin.pageZoom < PageZoom.maximum)
-        add("缩小  ⌘−", action: #selector(menuZoomOut(_:)),
+        add(L10n.text(.menuZoomOut), action: #selector(menuZoomOut(_:)),
             enabled: pin.pageZoom > PageZoom.minimum)
-        add("恢复默认（\(PageZoom.percent(PageZoom.defaultValue))%）  ⌘0",
+        add(L10n.text(.menuZoomReset, PageZoom.percent(PageZoom.defaultValue)),
             action: #selector(menuResetZoom(_:)),
             enabled: PageZoom.normalized(pin.pageZoom) != PageZoom.defaultValue)
         root.submenu = submenu
@@ -339,12 +341,12 @@ final class StatusItemManager: NSObject {
     }
 
     private func buildPresetsMenuItem() -> NSMenuItem {
-        let root = NSMenuItem(title: "预设站点", action: nil, keyEquivalent: "")
-        let submenu = NSMenu(title: "预设站点")
+        let root = NSMenuItem(title: L10n.text(.menuPresets), action: nil, keyEquivalent: "")
+        let submenu = NSMenu(title: L10n.text(.menuPresets))
         submenu.autoenablesItems = false
 
         if pinStore.presets.isEmpty {
-            let empty = NSMenuItem(title: "没有预设站点", action: nil, keyEquivalent: "")
+            let empty = NSMenuItem(title: L10n.text(.menuNoPresets), action: nil, keyEquivalent: "")
             empty.isEnabled = false
             submenu.addItem(empty)
         } else {

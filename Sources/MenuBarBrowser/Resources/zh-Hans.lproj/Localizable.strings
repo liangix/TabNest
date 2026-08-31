@@ -1,0 +1,100 @@
+"state.loading" = "正在加载…";
+
+"ua.system" = "系统默认";
+"ua.desktop" = "桌面";
+"ua.mobile" = "移动端";
+"ua.custom" = "自定义";
+"ua.system.description" = "使用当前系统 Safari 版本 UA，随系统更新（推荐）";
+"ua.desktop.description" = "使用固定 Safari 18.6 UA，兼容限制内嵌浏览器的网站";
+"ua.mobile.description" = "模拟移动端 Safari 18.6";
+
+"hotkey.automatic" = "自动";
+"hotkey.custom" = "自定义";
+"hotkey.disabled" = "关闭";
+"hotkey.record.prompt" = "请按组合键…";
+"hotkey.record.idle" = "点击录入快捷键";
+"hotkey.automatic.description" = "按预设顺序使用 ⌥⇧1–9";
+"hotkey.disabled.description" = "不注册全局快捷键";
+
+"common.add" = "添加";
+"common.cancel" = "取消";
+"common.save" = "保存";
+"common.open" = "打开";
+"common.close" = "关闭";
+"common.edit" = "编辑";
+"common.clear" = "清除";
+"common.ok" = "好";
+"common.allow" = "允许";
+"common.deny" = "拒绝";
+
+"edit.menu" = "编辑";
+"edit.undo" = "撤销";
+"edit.redo" = "重做";
+"edit.cut" = "剪切";
+"edit.copy" = "拷贝";
+"edit.paste" = "粘贴";
+"edit.selectAll" = "全选";
+
+"window.addSite" = "添加站点";
+"window.editSite" = "编辑站点";
+"window.about" = "关于";
+"window.presets" = "预设站点";
+
+"form.url" = "网址";
+"form.url.placeholder" = "example.com 或 https://…";
+"form.name" = "名称";
+"form.name.placeholder" = "可选，默认使用域名";
+"form.browserIdentity" = "浏览器标识";
+"form.customUA.placeholder" = "输入完整的 User-Agent";
+"form.autoRefresh" = "自动刷新";
+"form.refresh.off" = "关闭";
+"form.refresh.30seconds" = "每 30 秒";
+"form.refresh.1minute" = "每 1 分钟";
+"form.refresh.5minutes" = "每 5 分钟";
+"form.hotkey" = "快捷键";
+"form.error.invalidURL" = "无法识别的网址，请检查格式";
+"form.error.customUA" = "请输入自定义 User-Agent";
+"form.error.customHotkey" = "请录入自定义快捷键，或选择自动/关闭";
+"form.error.duplicateURL" = "该网址已存在";
+"form.unnamedSite" = "未命名站点";
+
+"presets.empty" = "还没有预设站点";
+"presets.delete.help" = "删除预设";
+"presets.closeKeepsPreset" = "关闭 Tab 不会删除预设";
+"presets.addSite.ellipsis" = "添加站点…";
+
+"about.subtitle" = "Menu Bar Browser\n原生 macOS 菜单栏浏览器";
+"about.instructions" = "左键图标弹出面板 · 右键更多操作\n默认 ⌥⇧1–9，也可为站点自定义快捷键\nEsc / ⌘W 关闭面板\n⌘R 刷新 · ⇧⌘R 强制刷新 · ⌘[ / ⌘] 前进后退";
+
+"status.tabs.count" = "TabNest（%d 个 Tab）";
+"status.globalShortcut.tooltip" = "%@（%@ 全局唤起）";
+"status.accessibilityDescription" = "TabNest 菜单栏浏览器";
+
+"menu.noOpenTabs" = "没有打开的 Tab";
+"menu.presets.ellipsis" = "预设站点…";
+"menu.reload" = "重新载入";
+"menu.mute" = "静音";
+"menu.unmute" = "取消静音";
+"menu.openInDefaultBrowser" = "在默认浏览器打开";
+"menu.editSite.ellipsis" = "编辑站点…";
+"menu.globalShortcut" = "全局唤起 %@";
+"menu.closeSite" = "关闭「%@」";
+"menu.newSite.ellipsis" = "新建站点…";
+"menu.managePresets.ellipsis" = "管理预设站点…";
+"menu.collapseIcons" = "收拢为一个图标";
+"menu.expandIcons" = "展开为每个 Tab 图标";
+"menu.hideOutside" = "点击面板外部时自动隐藏";
+"menu.launchAtLogin" = "登录时启动";
+"menu.about" = "关于 TabNest";
+"menu.quit" = "退出";
+"menu.pageZoom.percent" = "页面缩放（%d%%）";
+"menu.pageZoom" = "页面缩放";
+"menu.zoomIn" = "放大  ⌘+";
+"menu.zoomOut" = "缩小  ⌘−";
+"menu.zoomReset" = "恢复默认（%d%%）  ⌘0";
+"menu.presets" = "预设站点";
+"menu.noPresets" = "没有预设站点";
+
+"microphone.permission.title" = "允许此网页使用麦克风？";
+"microphone.permission.message" = "%@ 请求录音。允许后，macOS 可能继续显示系统麦克风授权提示。";
+"web.message.title" = "网页消息";

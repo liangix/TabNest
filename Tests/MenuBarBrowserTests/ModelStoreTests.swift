@@ -8,6 +8,27 @@ private final class WeakReference<Object: AnyObject> {
 }
 
 final class ModelStoreTests: XCTestCase {
+    func testLanguageResolutionUsesChineseAndFallsBackToEnglish() {
+        XCTAssertEqual(AppLanguage.resolve(preferredLanguages: ["zh-Hans-CN"]), .simplifiedChinese)
+        XCTAssertEqual(AppLanguage.resolve(preferredLanguages: ["zh_Hant_TW"]), .simplifiedChinese)
+        XCTAssertEqual(AppLanguage.resolve(preferredLanguages: ["en-US"]), .english)
+        XCTAssertEqual(AppLanguage.resolve(preferredLanguages: ["fr-FR", "zh-Hans"]), .english)
+        XCTAssertEqual(AppLanguage.resolve(preferredLanguages: []), .english)
+    }
+
+    func testEveryLocalizedKeyHasEnglishAndChineseValues() {
+        for key in L10nKey.allCases {
+            XCTAssertNotEqual(L10n.text(key, language: .english), key.rawValue, "Missing English: \(key)")
+            XCTAssertNotEqual(L10n.text(key, language: .simplifiedChinese), key.rawValue,
+                              "Missing Chinese: \(key)")
+        }
+        XCTAssertEqual(L10n.text(.commonCancel, language: .english), "Cancel")
+        XCTAssertEqual(L10n.text(.commonCancel, language: .simplifiedChinese), "取消")
+        XCTAssertEqual(L10n.text(.statusTabsCount, language: .english, 3), "TabNest (3 tabs)")
+        XCTAssertEqual(L10n.text(.statusTabsCount, language: .simplifiedChinese, 3),
+                       "TabNest（3 个 Tab）")
+    }
+
     @MainActor
     func testInitialTabsSurviveRelaunch() throws {
         let suiteName = "MenuBarBrowserTests.\(UUID().uuidString)"

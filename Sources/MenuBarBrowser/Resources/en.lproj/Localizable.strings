@@ -1,0 +1,100 @@
+"state.loading" = "Loading…";
+
+"ua.system" = "System";
+"ua.desktop" = "Desktop";
+"ua.mobile" = "Mobile";
+"ua.custom" = "Custom";
+"ua.system.description" = "Use the current system Safari user agent and update with the system (recommended)";
+"ua.desktop.description" = "Use a fixed Safari 18.6 user agent for sites that restrict embedded browsers";
+"ua.mobile.description" = "Emulate mobile Safari 18.6";
+
+"hotkey.automatic" = "Automatic";
+"hotkey.custom" = "Custom";
+"hotkey.disabled" = "Off";
+"hotkey.record.prompt" = "Press a shortcut…";
+"hotkey.record.idle" = "Click to record shortcut";
+"hotkey.automatic.description" = "Use ⌥⇧1–9 in preset order";
+"hotkey.disabled.description" = "Do not register a global shortcut";
+
+"common.add" = "Add";
+"common.cancel" = "Cancel";
+"common.save" = "Save";
+"common.open" = "Open";
+"common.close" = "Close";
+"common.edit" = "Edit";
+"common.clear" = "Clear";
+"common.ok" = "OK";
+"common.allow" = "Allow";
+"common.deny" = "Deny";
+
+"edit.menu" = "Edit";
+"edit.undo" = "Undo";
+"edit.redo" = "Redo";
+"edit.cut" = "Cut";
+"edit.copy" = "Copy";
+"edit.paste" = "Paste";
+"edit.selectAll" = "Select All";
+
+"window.addSite" = "Add Site";
+"window.editSite" = "Edit Site";
+"window.about" = "About";
+"window.presets" = "Preset Sites";
+
+"form.url" = "URL";
+"form.url.placeholder" = "example.com or https://…";
+"form.name" = "Name";
+"form.name.placeholder" = "Optional; defaults to the domain";
+"form.browserIdentity" = "Browser ID";
+"form.customUA.placeholder" = "Enter a complete User-Agent";
+"form.autoRefresh" = "Auto Reload";
+"form.refresh.off" = "Off";
+"form.refresh.30seconds" = "Every 30 sec";
+"form.refresh.1minute" = "Every minute";
+"form.refresh.5minutes" = "Every 5 min";
+"form.hotkey" = "Shortcut";
+"form.error.invalidURL" = "The URL could not be recognized. Check its format.";
+"form.error.customUA" = "Enter a custom User-Agent.";
+"form.error.customHotkey" = "Record a custom shortcut, or select Automatic/Off.";
+"form.error.duplicateURL" = "This URL already exists.";
+"form.unnamedSite" = "Unnamed Site";
+
+"presets.empty" = "No preset sites yet";
+"presets.delete.help" = "Delete preset";
+"presets.closeKeepsPreset" = "Closing a tab does not delete its preset";
+"presets.addSite.ellipsis" = "Add Site…";
+
+"about.subtitle" = "Menu Bar Browser\nA native macOS menu bar browser";
+"about.instructions" = "Left-click an icon to show its panel · Right-click for more actions\nUse ⌥⇧1–9 by default, or set a custom shortcut per site\nEsc / ⌘W hides the panel\n⌘R reloads · ⇧⌘R force reloads · ⌘[ / ⌘] goes back/forward";
+
+"status.tabs.count" = "TabNest (%d tabs)";
+"status.globalShortcut.tooltip" = "%@ (%@ global shortcut)";
+"status.accessibilityDescription" = "TabNest menu bar browser";
+
+"menu.noOpenTabs" = "No Open Tabs";
+"menu.presets.ellipsis" = "Preset Sites…";
+"menu.reload" = "Reload";
+"menu.mute" = "Mute";
+"menu.unmute" = "Unmute";
+"menu.openInDefaultBrowser" = "Open in Default Browser";
+"menu.editSite.ellipsis" = "Edit Site…";
+"menu.globalShortcut" = "Global Shortcut %@";
+"menu.closeSite" = "Close “%@”";
+"menu.newSite.ellipsis" = "New Site…";
+"menu.managePresets.ellipsis" = "Manage Preset Sites…";
+"menu.collapseIcons" = "Collapse into One Icon";
+"menu.expandIcons" = "Expand into Tab Icons";
+"menu.hideOutside" = "Hide Panel When Clicking Outside";
+"menu.launchAtLogin" = "Launch at Login";
+"menu.about" = "About TabNest";
+"menu.quit" = "Quit";
+"menu.pageZoom.percent" = "Page Zoom (%d%%)";
+"menu.pageZoom" = "Page Zoom";
+"menu.zoomIn" = "Zoom In  ⌘+";
+"menu.zoomOut" = "Zoom Out  ⌘−";
+"menu.zoomReset" = "Reset to Default (%d%%)  ⌘0";
+"menu.presets" = "Preset Sites";
+"menu.noPresets" = "No Preset Sites";
+
+"microphone.permission.title" = "Allow This Website to Use the Microphone?";
+"microphone.permission.message" = "%@ is requesting audio recording access. macOS may show another microphone permission prompt after you allow it.";
+"web.message.title" = "Website Message";

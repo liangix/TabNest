@@ -23,7 +23,7 @@ final class FormWindowController {
             self?.close()
         }
 
-        present(view: form.frame(width: 440), title: "添加站点")
+        present(view: form.frame(width: 440), title: L10n.text(.windowAddSite))
     }
 
     func presentEdit(_ pin: Pin) {
@@ -37,11 +37,11 @@ final class FormWindowController {
             self?.close()
         }
 
-        present(view: form.frame(width: 440), title: "编辑站点")
+        present(view: form.frame(width: 440), title: L10n.text(.windowEditSite))
     }
 
     func presentAbout() {
-        present(view: AboutView().frame(width: 360, height: 280), title: "关于")
+        present(view: AboutView().frame(width: 360, height: 280), title: L10n.text(.windowAbout))
     }
 
     func presentPresetManager() {
@@ -50,7 +50,7 @@ final class FormWindowController {
         } onEdit: { [weak self] pin in
             self?.presentEdit(pin)
         }
-        present(view: view, title: "预设站点")
+        present(view: view, title: L10n.text(.windowPresets))
     }
 
     func close() {

@@ -25,6 +25,7 @@ fi
 echo "==> swift build ${BUILD_ARGS[*]}"
 swift build "${BUILD_ARGS[@]}"
 BUILD_DIR="$(swift build "${BUILD_ARGS[@]}" --show-bin-path)"
+RESOURCE_BUNDLE="${BUILD_DIR}/${EXECUTABLE_NAME}_${EXECUTABLE_NAME}.bundle"
 
 echo "==> 生成应用图标"
 rm -rf "${ICONSET_DIR}"
@@ -54,13 +55,27 @@ mkdir -p "${APP_DIR}/Contents/Resources"
 
 cp "${BUILD_DIR}/${EXECUTABLE_NAME}" "${APP_DIR}/Contents/MacOS/${EXECUTABLE_NAME}"
 cp "${ICON_FILE}" "${APP_DIR}/Contents/Resources/AppIcon.icns"
+if [[ -d "${RESOURCE_BUNDLE}" ]]; then
+    ditto "${RESOURCE_BUNDLE}" \
+        "${APP_DIR}/Contents/Resources/${EXECUTABLE_NAME}_${EXECUTABLE_NAME}.bundle"
+fi
+for localization in en zh-Hans; do
+    source_dir="Sources/${EXECUTABLE_NAME}/Resources/${localization}.lproj"
+    if [[ -d "${source_dir}" ]]; then
+        mkdir -p "${APP_DIR}/Contents/Resources/${localization}.lproj"
+        cp "${source_dir}/InfoPlist.strings" \
+            "${APP_DIR}/Contents/Resources/${localization}.lproj/InfoPlist.strings"
+    fi
+done
 
 cat > "${APP_DIR}/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CFBundleDevelopmentRegion</key><string>zh_CN</string>
+    <key>CFBundleDevelopmentRegion</key><string>en</string>
+    <key>CFBundleLocalizations</key>
+    <array><string>en</string><string>zh-Hans</string></array>
     <key>CFBundleExecutable</key><string>${EXECUTABLE_NAME}</string>
     <key>CFBundleIdentifier</key><string>${BUNDLE_ID}</string>
     <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
@@ -74,7 +89,7 @@ cat > "${APP_DIR}/Contents/Info.plist" <<PLIST
     <key>LSUIElement</key><true/>
     <key>NSHighResolutionCapable</key><true/>
     <key>NSMicrophoneUsageDescription</key>
-    <string>允许用户在网页中使用麦克风进行录音、语音输入或通话。</string>
+    <string>Allow websites you approve to use the microphone for recording, voice input, or calls.</string>
     <key>NSHumanReadableCopyright</key><string>MIT License</string>
 </dict>
 </plist>

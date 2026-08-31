@@ -28,18 +28,18 @@ struct PinFormView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             VStack(alignment: .leading, spacing: 7) {
-                labeledRow("网址") {
-                    TextField("example.com 或 https://…", text: $urlString)
+                labeledRow(L10n.text(.formURL)) {
+                    TextField(L10n.text(.formURLPlaceholder), text: $urlString)
                         .textFieldStyle(.roundedBorder)
                         .onSubmit(submit)
                 }
-                labeledRow("名称") {
-                    TextField("可选，默认使用域名", text: $name)
+                labeledRow(L10n.text(.formName)) {
+                    TextField(L10n.text(.formNamePlaceholder), text: $name)
                         .textFieldStyle(.roundedBorder)
                         .onSubmit(submit)
                 }
 
-                labeledRow("浏览器标识") {
+                labeledRow(L10n.text(.formBrowserIdentity)) {
                     VStack(alignment: .leading, spacing: 5) {
                         Picker("", selection: $uaMode) {
                             ForEach(UserAgentMode.allCases) { mode in
@@ -51,7 +51,7 @@ struct PinFormView: View {
 
                         Group {
                             if uaMode == .custom {
-                            TextField("输入完整的 User-Agent", text: $customUA)
+                            TextField(L10n.text(.formCustomUAPlaceholder), text: $customUA)
                                 .textFieldStyle(.roundedBorder)
                                 .font(.system(size: 11))
                             } else {
@@ -66,18 +66,18 @@ struct PinFormView: View {
                     .frame(maxWidth: .infinity)
                 }
 
-                labeledRow("自动刷新") {
+                labeledRow(L10n.text(.formAutoRefresh)) {
                     Picker("", selection: $refreshInterval) {
-                        Text("关闭").tag(TimeInterval(0))
-                        Text("每 30 秒").tag(TimeInterval(30))
-                        Text("每 1 分钟").tag(TimeInterval(60))
-                        Text("每 5 分钟").tag(TimeInterval(300))
+                        Text(L10n.text(.formRefreshOff)).tag(TimeInterval(0))
+                        Text(L10n.text(.formRefresh30Seconds)).tag(TimeInterval(30))
+                        Text(L10n.text(.formRefresh1Minute)).tag(TimeInterval(60))
+                        Text(L10n.text(.formRefresh5Minutes)).tag(TimeInterval(300))
                     }
                     .labelsHidden()
                     .frame(width: 160)
                 }
 
-                labeledRow("快捷键") {
+                labeledRow(L10n.text(.formHotkey)) {
                     VStack(alignment: .leading, spacing: 5) {
                         Picker("", selection: $hotkeyMode) {
                             ForEach(HotkeyMode.allCases) { mode in
@@ -89,7 +89,7 @@ struct PinFormView: View {
 
                         Group {
                             if hotkeyMode == .automatic {
-                                Text("按预设顺序使用 ⌥⇧1–9")
+                                Text(L10n.text(.hotkeyAutomaticDescription))
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -97,12 +97,12 @@ struct PinFormView: View {
                                 HStack(spacing: 8) {
                                     HotkeyRecorder(shortcut: $customHotkey)
                                     if customHotkey != nil {
-                                        Button("清除") { customHotkey = nil }
+                                        Button(L10n.text(.commonClear)) { customHotkey = nil }
                                             .buttonStyle(.link)
                                     }
                                 }
                             } else {
-                                Text("不注册全局快捷键")
+                                Text(L10n.text(.hotkeyDisabledDescription))
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -122,8 +122,8 @@ struct PinFormView: View {
 
             HStack {
                 Spacer()
-                Button("取消", action: onCancel).keyboardShortcut(.cancelAction)
-                Button(isEditing ? "保存" : "添加", action: submit)
+                Button(L10n.text(.commonCancel), action: onCancel).keyboardShortcut(.cancelAction)
+                Button(isEditing ? L10n.text(.commonSave) : L10n.text(.commonAdd), action: submit)
                     .keyboardShortcut(.defaultAction)
                     .disabled(urlString.trimmingCharacters(in: .whitespaces).isEmpty)
             }
@@ -138,7 +138,7 @@ struct PinFormView: View {
         HStack(alignment: .top, spacing: 10) {
             Text(label)
                 .font(.subheadline)
-                .frame(width: 64, alignment: .trailing)
+                .frame(width: L10n.language == .english ? 88 : 64, alignment: .trailing)
             content()
         }
     }
@@ -147,9 +147,9 @@ struct PinFormView: View {
 
     private var uaDescription: String {
         switch uaMode {
-        case .system: return "使用当前系统 Safari 版本 UA，随系统更新（推荐）"
-        case .desktop: return "使用固定 Safari 18.6 UA，兼容限制内嵌浏览器的网站"
-        case .mobile: return "模拟移动端 Safari 18.6"
+        case .system: return L10n.text(.uaSystemDescription)
+        case .desktop: return L10n.text(.uaDesktopDescription)
+        case .mobile: return L10n.text(.uaMobileDescription)
         case .custom: return ""
         }
     }
@@ -181,21 +181,21 @@ struct PinFormView: View {
         )
         guard let resolvedURL = candidate.url,
               ["http", "https"].contains(resolvedURL.scheme?.lowercased() ?? "") else {
-            errorMessage = "无法识别的网址，请检查格式"
+            errorMessage = L10n.text(.formErrorInvalidURL)
             return
         }
         if uaMode == .custom && candidate.customUserAgent.isEmpty {
-            errorMessage = "请输入自定义 User-Agent"
+            errorMessage = L10n.text(.formErrorCustomUA)
             return
         }
         if hotkeyMode == .custom && customHotkey == nil {
-            errorMessage = "请录入自定义快捷键，或选择自动/关闭"
+            errorMessage = L10n.text(.formErrorCustomHotkey)
             return
         }
 
         candidate.urlString = resolvedURL.absoluteString
         if candidate.name.isEmpty {
-            candidate.name = resolvedURL.host ?? "未命名站点"
+            candidate.name = resolvedURL.host ?? L10n.text(.formUnnamedSite)
         }
         if let original = editingPin,
            original.canonicalURLString != candidate.canonicalURLString {
@@ -203,7 +203,7 @@ struct PinFormView: View {
         }
         errorMessage = nil
         if !onSave(candidate) {
-            errorMessage = "该网址已存在"
+            errorMessage = L10n.text(.formErrorDuplicateURL)
         }
     }
 

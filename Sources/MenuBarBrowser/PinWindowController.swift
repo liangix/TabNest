@@ -325,7 +325,7 @@ final class PinWindowController: NSObject {
     private func refreshState() {
         let wv = webTab.webView
         panelModel.state = TabState(
-            title: wv.title?.isEmpty == false ? wv.title! : (wv.url?.host ?? "正在加载…"),
+            title: wv.title?.isEmpty == false ? wv.title! : (wv.url?.host ?? L10n.text(.loading)),
             urlString: wv.url?.absoluteString ?? "",
             isLoading: wv.isLoading,
             progress: wv.estimatedProgress,

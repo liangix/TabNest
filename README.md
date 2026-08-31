@@ -26,7 +26,19 @@ TabNest 是一个原生 macOS 菜单栏浏览器。每个网页拥有独立的�
 2. 打开 DMG，将 `TabNest.app` 拖入 `Applications`。
 3. 启动 TabNest，菜单栏会出现站点图标。
 
-当前 Release 使用 ad-hoc 签名，尚未进行 Apple Developer ID 公证。如果 macOS 首次阻止打开，请在 Finder 的“应用程序”中右键 TabNest，选择“打开”并确认。不要从来源不明的位置下载二次打包版本。
+当前 Release 使用 ad-hoc 签名，尚未进行 Apple Developer ID 公证。macOS 首次启动时可能提示“Apple 无法验证 TabNest 是否包含可能危害 Mac 安全或泄漏隐私的恶意软件”。请只从本项目的 GitHub Releases 下载，并按下面的方法放行；不要安装来源不明的二次打包版本。
+
+### macOS 安全放行
+
+1. 先尝试打开一次 TabNest，看到安全提示后关闭提示框。
+2. 打开“系统设置 → 隐私与安全性”。
+3. 向下滚动到“安全性”，找到 TabNest 被阻止的提示。
+4. 点击“仍要打开”，输入登录密码或使用 Touch ID 确认。
+5. 再次确认“打开”。此操作只需执行一次，之后可正常启动 TabNest。
+
+“仍要打开”通常只会在首次启动被阻止后的一段时间内出现。如果没有看到，请重新尝试启动 TabNest，再回到“隐私与安全性”。部分 macOS 版本也可以在 Finder 的“应用程序”中右键 TabNest，选择“打开”并确认。
+
+不要为了安装 TabNest 全局关闭 Gatekeeper。
 
 系统要求：**macOS 13 Ventura 或更高版本**。Release DMG 包含 `arm64` 与 `x86_64` 双架构，可运行于 Apple Silicon 和 Intel Mac。
 
@@ -41,6 +53,7 @@ TabNest 是一个原生 macOS 菜单栏浏览器。每个网页拥有独立的�
 - **页面缩放**：每个站点独立保存，默认 90%，范围 50%–200%。
 - **媒体控制**：支持静音；关闭 Tab 时同步停止音视频和网络加载。
 - **网页录音**：HTTPS 页面可以请求麦克风，先确认网页来源，再进入 macOS 系统授权。
+- **中英界面**：自动跟随系统首选语言，支持中文和英语，其他语言环境回退为英语。
 - **其他能力**：自动刷新、强制刷新、前进后退、登录态持久化、登录时启动。
 
 ## 默认预设
@@ -80,17 +93,39 @@ TabNest 是一个原生 macOS 菜单栏浏览器。每个网页拥有独立的�
 - 麦克风系统授权可在“系统设置 → 隐私与安全性 → 麦克风”中撤销。
 - 网页尝试唤起未安装的外部 App Scheme 时会被拦截，避免出现系统 URL 弹窗。
 
-## 本地开发
+## 从源码构建
+
+需要 macOS 13 或更高版本，以及 Swift 5.9 或更高版本。可以安装 Xcode 15 或更新版本，也可以先安装 Xcode Command Line Tools：
+
+```bash
+xcode-select --install
+swift --version
+```
+
+克隆项目并运行测试：
 
 ```bash
 git clone https://github.com/liangix/TabNest.git
 cd TabNest
 
-swift test                       # 运行测试
-swift run                        # 开发运行
-./scripts/make_app.sh release    # 构建 dist/TabNest.app
-open dist/TabNest.app
+swift test
 ```
+
+开发模式直接运行：
+
+```bash
+swift run
+```
+
+构建标准 macOS 应用并安装到“应用程序”：
+
+```bash
+./scripts/make_app.sh release
+ditto "dist/TabNest.app" "/Applications/TabNest.app"
+open "/Applications/TabNest.app"
+```
+
+本地构建使用 ad-hoc 签名，适合在自己的 Mac 上运行和调试，不适合作为已公证版本向其他用户分发。
 
 构建通用架构 DMG：
 

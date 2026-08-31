@@ -2,7 +2,7 @@ import Foundation
 
 /// 标签页状态快照，供面板渲染进度条等反馈。
 struct TabState: Equatable {
-    var title: String = "正在加载…"
+    var title: String = L10n.text(.loading)
     var urlString: String = ""
     var isLoading = false
     var progress: Double = 0
@@ -20,10 +20,10 @@ enum UserAgentMode: String, Codable, CaseIterable, Identifiable {
 
     var displayName: String {
         switch self {
-        case .system: return "系统默认"
-        case .desktop: return "桌面"
-        case .mobile: return "移动端"
-        case .custom: return "自定义"
+        case .system: return L10n.text(.uaSystem)
+        case .desktop: return L10n.text(.uaDesktop)
+        case .mobile: return L10n.text(.uaMobile)
+        case .custom: return L10n.text(.uaCustom)
         }
     }
 }
@@ -37,9 +37,9 @@ enum HotkeyMode: String, Codable, CaseIterable, Identifiable {
 
     var displayName: String {
         switch self {
-        case .automatic: return "自动"
-        case .custom: return "自定义"
-        case .disabled: return "关闭"
+        case .automatic: return L10n.text(.hotkeyAutomatic)
+        case .custom: return L10n.text(.hotkeyCustom)
+        case .disabled: return L10n.text(.hotkeyDisabled)
         }
     }
 }

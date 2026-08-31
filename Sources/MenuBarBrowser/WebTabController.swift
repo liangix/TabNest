@@ -444,10 +444,10 @@ extension WebTabController: WKUIDelegate {
         let source = "\(scheme)://\(origin.host)\(port)"
         let alert = NSAlert()
         alert.alertStyle = .informational
-        alert.messageText = "允许此网页使用麦克风？"
-        alert.informativeText = "\(source) 请求录音。允许后，macOS 可能继续显示系统麦克风授权提示。"
-        alert.addButton(withTitle: "允许")
-        alert.addButton(withTitle: "拒绝")
+        alert.messageText = L10n.text(.microphonePermissionTitle)
+        alert.informativeText = L10n.text(.microphonePermissionMessage, source)
+        alert.addButton(withTitle: L10n.text(.commonAllow))
+        alert.addButton(withTitle: L10n.text(.commonDeny))
         decisionHandler(alert.runModal() == .alertFirstButtonReturn ? .grant : .deny)
     }
 
@@ -468,9 +468,9 @@ extension WebTabController: WKUIDelegate {
                  initiatedByFrame frame: WKFrameInfo,
                  completionHandler: @escaping @MainActor @Sendable () -> Void) {
         let alert = NSAlert()
-        alert.messageText = frame.request.url?.host ?? "网页消息"
+        alert.messageText = frame.request.url?.host ?? L10n.text(.webMessageTitle)
         alert.informativeText = message
-        alert.addButton(withTitle: "好")
+        alert.addButton(withTitle: L10n.text(.commonOK))
         alert.runModal()
         completionHandler()
     }
@@ -480,8 +480,8 @@ extension WebTabController: WKUIDelegate {
                  completionHandler: @escaping @MainActor @Sendable (Bool) -> Void) {
         let alert = NSAlert()
         alert.messageText = message
-        alert.addButton(withTitle: "好")
-        alert.addButton(withTitle: "取消")
+        alert.addButton(withTitle: L10n.text(.commonOK))
+        alert.addButton(withTitle: L10n.text(.commonCancel))
         completionHandler(alert.runModal() == .alertFirstButtonReturn)
     }
 
@@ -493,8 +493,8 @@ extension WebTabController: WKUIDelegate {
         let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 24))
         input.stringValue = defaultText ?? ""
         alert.accessoryView = input
-        alert.addButton(withTitle: "好")
-        alert.addButton(withTitle: "取消")
+        alert.addButton(withTitle: L10n.text(.commonOK))
+        alert.addButton(withTitle: L10n.text(.commonCancel))
         let ok = alert.runModal() == .alertFirstButtonReturn
         completionHandler(ok ? input.stringValue : nil)
     }

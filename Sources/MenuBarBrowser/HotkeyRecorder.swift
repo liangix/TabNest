@@ -30,7 +30,9 @@ final class RecorderField: NSView {
         (window?.firstResponder === self ? NSColor.controlAccentColor : NSColor.separatorColor).setStroke()
         path.stroke()
 
-        let text = shortcut?.displayName ?? (window?.firstResponder === self ? "请按组合键…" : "点击录入快捷键")
+        let text = shortcut?.displayName ?? (window?.firstResponder === self
+            ? L10n.text(.hotkeyRecordPrompt)
+            : L10n.text(.hotkeyRecordIdle))
         let attributes: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: 13),
             .foregroundColor: shortcut == nil ? NSColor.secondaryLabelColor : NSColor.labelColor,
