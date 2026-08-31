@@ -153,7 +153,11 @@ enum L10n {
     }
 
     private static func bundle(for language: AppLanguage) -> Bundle {
-        guard let path = resourceBundle.path(forResource: language.rawValue, ofType: "lproj"),
+        // SwiftPM normalizes localization directory names to lowercase when it
+        // builds a resource bundle. Explicitly use that on case-sensitive CI
+        // volumes; the default macOS volume otherwise hides this mismatch.
+        let resourceName = language.rawValue.lowercased()
+        guard let path = resourceBundle.path(forResource: resourceName, ofType: "lproj"),
               let bundle = Bundle(path: path) else {
             return resourceBundle
         }
