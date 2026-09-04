@@ -10,13 +10,60 @@ final class StatusItemManager: NSObject {
     private var placeholderItem: NSStatusItem?
     private var collapsedItem: NSStatusItem?
     private var cancellables = Set<AnyCancellable>()
+    private var unreadPins: Set<UUID> = []
+    private let notificationToast = NotificationToast()
+
+    func setUnreadPins(_ pinIDs: Set<UUID>) {
+        unreadPins = pinIDs
+        notificationToast.retainTabs(pinIDs)
+        refreshUnreadDots()
+    }
+
+    func dismissNotification(for pinID: UUID) {
+        if notificationToast.notice?.pinID == pinID { notificationToast.dismiss() }
+    }
+
+    func showNotification(_ notice: WebNotice) {
+        guard let pin = pinStore.pin(with: notice.pinID),
+              let button = statusItem(for: notice.pinID)?.button else { return }
+        notificationToast.show(notice, siteName: pin.name, anchor: button,
+                               onOpen: { [weak self] in self?.registry?.openNotification(notice) },
+                               onDisable: { [weak self] in self?.disableNotifications(for: notice.pinID) })
+    }
+
+    private func disableNotifications(for id: UUID) {
+        guard var pin = pinStore.pin(with: id) else { return }
+        pin.notificationsEnabled = false
+        _ = pinStore.update(pin)
+        registry?.markNotificationsRead(id)
+    }
+
+    private func refreshUnreadDots() {
+        func update(_ button: NSStatusBarButton?, unread: Bool) {
+            guard let button else { return }
+            let old = button.subviews.first { $0 is UnreadDotView }
+            if unread && old == nil {
+                let dot = UnreadDotView(frame: UnreadDotView.badgeFrame(in: button.bounds,
+                                                                       isFlipped: button.isFlipped))
+                dot.autoresizingMask = [.minXMargin, button.isFlipped ? .minYMargin : .maxYMargin]
+                dot.setAccessibilityElement(false)
+                button.addSubview(dot)
+            } else if !unread { old?.removeFromSuperview() }
+            button.setAccessibilityValue(unread ? L10n.text(.notificationUnread) : nil)
+        }
+        for (id, item) in items { update(item.button, unread: unreadPins.contains(id)) }
+        update(collapsedItem?.button, unread: !unreadPins.isEmpty)
+    }
 
     private let pinStore: PinStore
     private weak var registry: WindowManager?
+    private let settingsProvider: @MainActor () -> AppSettings
 
-    init(pinStore: PinStore, favicon: FaviconCache) {
+    init(pinStore: PinStore, favicon: FaviconCache,
+         settingsProvider: @escaping @MainActor () -> AppSettings = { AppDelegate.sharedSettings.settings }) {
         self.pinStore = pinStore
         self.favicon = favicon
+        self.settingsProvider = settingsProvider
         super.init()
 
         favicon.imageDidChange
@@ -38,12 +85,18 @@ final class StatusItemManager: NSObject {
     // MARK: - 同步
 
     func sync(with pins: [Pin]) {
+        defer {
+            refreshUnreadDots()
+            if let notice = notificationToast.notice, let button = statusItem(for: notice.pinID)?.button {
+                notificationToast.reanchor(to: button)
+            }
+        }
         if settingsRead.statusIconMode == .collapsed {
             removeExpandedItems()
             syncCollapsedItem(visible: true)
             collapsedItem?.button?.toolTip = L10n.text(.statusTabsCount, pins.count)
             syncPlaceholder(pinsNeedPlaceholder: false)
-            registry?.rebindStatusItems()
+            registry?.rebindStatusItems(with: pins)
             return
         }
 
@@ -79,7 +132,7 @@ final class StatusItemManager: NSObject {
             }
         }
         syncPlaceholder(pinsNeedPlaceholder: pins.isEmpty)
-        registry?.rebindStatusItems()
+        registry?.rebindStatusItems(with: pins)
     }
 
     private func removeExpandedItems() {
@@ -221,7 +274,8 @@ final class StatusItemManager: NSObject {
             for pin in pinStore.pins {
                 let hotkey = HotkeyManager.shared.label(for: pin.id)
                 let item = NSMenuItem(title: compactMenuName(pin.name), action: #selector(menuSelectTab(_:)), keyEquivalent: "")
-                if let hotkey { item.attributedTitle = siteMenuTitle(name: pin.name, hotkey: hotkey) }
+                item.attributedTitle = siteMenuTitle(name: pin.name, hotkey: hotkey ?? "",
+                                                     unread: unreadPins.contains(pin.id))
                 item.target = self
                 item.representedObject = pin.id.uuidString
                 item.state = panelVisible(pin.id) ? .on : .off
@@ -236,8 +290,8 @@ final class StatusItemManager: NSObject {
         return menu
     }
 
-    private func siteMenuTitle(name: String, hotkey: String) -> NSAttributedString {
-        let compactName = compactMenuName(name)
+    private func siteMenuTitle(name: String, hotkey: String, unread: Bool = false) -> NSAttributedString {
+        let compactName = (unread ? "● " : "") + compactMenuName(name)
         let text = "\(compactName)\t\(hotkey)"
         let result = NSMutableAttributedString(string: text)
         let paragraph = NSMutableParagraphStyle()
@@ -249,10 +303,13 @@ final class StatusItemManager: NSObject {
             .foregroundColor: NSColor.labelColor,
             .paragraphStyle: paragraph,
         ], range: fullRange)
-        let shortcutRange = (text as NSString).range(of: hotkey, options: .backwards)
-        result.addAttribute(.foregroundColor,
+        if !hotkey.isEmpty {
+            let shortcutRange = (text as NSString).range(of: hotkey, options: .backwards)
+            result.addAttribute(.foregroundColor,
                             value: NSColor.secondaryLabelColor.withAlphaComponent(0.72),
                             range: shortcutRange)
+        }
+        if unread { result.addAttribute(.foregroundColor, value: NSColor.systemRed, range: NSRange(location: 0, length: 1)) }
         return result
     }
 
@@ -283,6 +340,7 @@ final class StatusItemManager: NSObject {
             add(L10n.text(.menuClearCacheAndReload),
                 action: #selector(menuClearCacheAndReload(_:)), represented: pin.id)
             menu.addItem(buildPageZoomMenuItem(for: pin))
+            menu.addItem(buildNotificationMenu(for: pin))
             add(pin.isMuted ? L10n.text(.menuUnmute) : L10n.text(.menuMute),
                 action: #selector(menuToggleMute(_:)), represented: pin.id)
             add(L10n.text(.menuOpenInDefaultBrowser), action: #selector(menuOpenExternal(_:)), represented: pin.id)
@@ -313,6 +371,49 @@ final class StatusItemManager: NSObject {
         add(L10n.text(.menuAbout), action: #selector(menuAbout(_:)))
         add(L10n.text(.menuQuit), action: #selector(menuQuit(_:)), key: "q")
         return menu
+    }
+
+    private struct NotificationPermissionChoice {
+        let pinID: UUID
+        let origin: String
+        let permission: WebNotificationPermission
+    }
+
+    func buildNotificationMenu(for pin: Pin) -> NSMenuItem {
+        let root = NSMenuItem(title: L10n.text(.notificationMenu), action: nil, keyEquivalent: "")
+        let menu = NSMenu()
+        menu.autoenablesItems = false
+        if let origin = registry?.notificationOrigin(for: pin.id) {
+            let heading = NSMenuItem(title: origin, action: nil, keyEquivalent: "")
+            heading.isEnabled = false
+            menu.addItem(heading)
+            let choices: [(L10nKey, WebNotificationPermission)] = [
+                (.notificationAllowOrigin, .granted), (.notificationDenyOrigin, .denied),
+                (.notificationAskOrigin, .ask),
+            ]
+            for (title, permission) in choices {
+                let item = NSMenuItem(title: L10n.text(title), action: #selector(menuSetNotificationPermission(_:)), keyEquivalent: "")
+                item.target = self
+                item.representedObject = NotificationPermissionChoice(pinID: pin.id, origin: origin, permission: permission)
+                item.state = WebNotificationPolicy.permission(for: pin, origin: origin) == permission ? .on : .off
+                menu.addItem(item)
+            }
+            menu.addItem(.separator())
+        }
+        let toggle = NSMenuItem(title: L10n.text(.notificationEnabled),
+                                action: #selector(menuToggleNotifications(_:)), keyEquivalent: "")
+        toggle.target = self
+        toggle.representedObject = pin.id.uuidString
+        toggle.state = pin.notificationsEnabled ? .on : .off
+        menu.addItem(toggle)
+        let reset = NSMenuItem(title: L10n.text(.notificationResetPermissions),
+                               action: #selector(menuResetNotificationPermissions(_:)), keyEquivalent: "")
+        reset.target = self
+        reset.representedObject = pin.id.uuidString
+        reset.isEnabled = !pin.notificationPermissions.isEmpty
+        menu.addItem(reset)
+        root.submenu = menu
+        return root
     }
 
     private func buildPageZoomMenuItem(for pin: Pin) -> NSMenuItem {
@@ -373,7 +474,7 @@ final class StatusItemManager: NSObject {
     }
 
     private var settingsRead: AppSettings {
-        AppDelegate.sharedSettings.settings
+        settingsProvider()
     }
 
     private var launchAtLoginEnabled: Bool {
@@ -381,6 +482,31 @@ final class StatusItemManager: NSObject {
     }
 
     // MARK: - 菜单动作（转发给注册表）
+
+    @objc private func menuSetNotificationPermission(_ sender: NSMenuItem) {
+        guard let choice = sender.representedObject as? NotificationPermissionChoice,
+              registry?.notificationOrigin(for: choice.pinID) == choice.origin,
+              var pin = pinStore.pin(with: choice.pinID) else { return }
+        pin.notificationsEnabled = true
+        pin.notificationPermissions[choice.origin] = choice.permission == .ask ? nil : choice.permission
+        _ = pinStore.update(pin)
+        registry?.sync(with: pinStore.pins)
+        if choice.permission != .granted { registry?.markNotificationsRead(pin.id) }
+    }
+
+    @objc private func menuToggleNotifications(_ sender: NSMenuItem) {
+        guard let id = uuid(from: sender), var pin = pinStore.pin(with: id) else { return }
+        pin.notificationsEnabled.toggle()
+        _ = pinStore.update(pin)
+        if !pin.notificationsEnabled { registry?.markNotificationsRead(id) }
+    }
+
+    @objc private func menuResetNotificationPermissions(_ sender: NSMenuItem) {
+        guard let id = uuid(from: sender), var pin = pinStore.pin(with: id) else { return }
+        pin.notificationPermissions = [:]
+        _ = pinStore.update(pin)
+        registry?.markNotificationsRead(id)
+    }
 
     @objc private func menuSelectTab(_ sender: NSMenuItem) {
         guard let id = uuid(from: sender) else { return }

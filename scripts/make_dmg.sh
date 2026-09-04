@@ -4,7 +4,7 @@ set -euo pipefail
 
 CONFIG="${1:-release}"
 APP_NAME="TabNest"
-VERSION="${TABNEST_VERSION:-1.0.0}"
+VERSION="${TABNEST_VERSION:-1.0.2}"
 DMG_NAME="${APP_NAME}-${VERSION}.dmg"
 DMG_PATH="dist/${DMG_NAME}"
 CHECKSUM_PATH="${DMG_PATH}.sha256"

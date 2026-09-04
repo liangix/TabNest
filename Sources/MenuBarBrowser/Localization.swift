@@ -121,6 +121,19 @@ enum L10nKey: String, CaseIterable {
     case webLoadFailedTitle = "web.loadFailed.title"
     case webProcessTerminated = "web.processTerminated"
     case webRetry = "web.retry"
+    case notificationMenu = "notification.menu"
+    case notificationLater = "notification.later"
+    case notificationPermissionHint = "notification.permission.hint"
+    case notificationAllowOrigin = "notification.allowOrigin"
+    case notificationDenyOrigin = "notification.denyOrigin"
+    case notificationAskOrigin = "notification.askOrigin"
+    case notificationEnabled = "notification.enabled"
+    case notificationDisable = "notification.disable"
+    case notificationResetPermissions = "notification.resetPermissions"
+    case notificationPermissionTitle = "notification.permission.title"
+    case notificationPermissionMessage = "notification.permission.message"
+    case notificationUnread = "notification.unread"
+    case notificationOpen = "notification.open"
 }
 
 enum L10n {

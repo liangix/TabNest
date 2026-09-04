@@ -102,3 +102,16 @@
 "web.loadFailed.title" = "This Page Couldn’t Be Loaded";
 "web.processTerminated" = "The web page process stopped unexpectedly. TabNest tried to restore it.";
 "web.retry" = "Try Again";
+"notification.menu" = "Web Notifications";
+"notification.later" = "Later";
+"notification.permission.hint" = "Reminders while this Tab is open";
+"notification.allowOrigin" = "Allow for this website";
+"notification.denyOrigin" = "Block for this website";
+"notification.askOrigin" = "Ask next time";
+"notification.enabled" = "Enable notifications (permission required)";
+"notification.disable" = "Disable notifications for this site";
+"notification.resetPermissions" = "Reset notification permissions";
+"notification.permission.title" = "Allow notifications?";
+"notification.permission.message" = "%@\n%@\n\nWhile this Tab is open, notifications may show a reminder below its menu bar icon and an unread dot. You can disable them in the site's menu.";
+"notification.unread" = "Unread notification";
+"notification.open" = "Open the corresponding Tab";

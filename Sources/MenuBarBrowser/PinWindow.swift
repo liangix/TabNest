@@ -1,7 +1,15 @@
 import AppKit
+import SwiftUI
+
+/// 所有菜单栏浮窗均允许箭头探入菜单栏，避免系统把窗口向下推。
+class StatusPopoverPanel: NSPanel {
+    override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect {
+        frameRect
+    }
+}
 
 /// 可在非激活状态下成为 key window 的无边框浮动面板。
-final class BrowserPanel: NSPanel {
+final class BrowserPanel: StatusPopoverPanel {
     var onEscape: (() -> Void)?
     var onReload: (() -> Void)?
     var onHardReload: (() -> Void)?
@@ -12,12 +20,6 @@ final class BrowserPanel: NSPanel {
     var onResetZoom: (() -> Void)?
 
     override var canBecomeKey: Bool { true }
-
-    /// 允许面板顶端探入菜单栏区域。
-    /// NSWindow 默认会把窗口钳制在菜单栏下方，这里直接放行。
-    override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect {
-        frameRect
-    }
 
     override func keyDown(with event: NSEvent) {
         if event.keyCode == 53 { // Esc
@@ -56,18 +58,8 @@ final class GlassPanelRootView: NSView {
     /// 箭头顶点在视图内的 x 坐标（0 表示不绘制箭头）
     var arrowX: CGFloat = 0 { didSet { updateMaskIfNeeded() } }
 
-    static let cornerRadius: CGFloat = 12
-    static let topInset: CGFloat = 14
-
-    /// 圆角导致箭头可见尖端低于几何顶点的偏移量。
-    /// 用于定位时补偿，使视觉尖端精确落在目标位置。
-    static var visualApexInset: CGFloat {
-        let hw: CGFloat = 9
-        let tipY: CGFloat = 2
-        let tipRadius: CGFloat = 4
-        let alpha = atan(hw / max(topInset - tipY, 1))   // 箭头半角
-        return tipRadius * (1 / sin(alpha) - 1)
-    }
+    static let cornerRadius = PopoverGeometry.cornerRadius
+    static let topInset = PopoverGeometry.topInset
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -88,12 +80,40 @@ final class GlassPanelRootView: NSView {
         // silhouette 以「左上原点」语义构建；CALayer 是左下原点，需翻转
         var transform = CGAffineTransform.identity
         transform = transform.translatedBy(x: 0, y: bounds.height).scaledBy(x: 1, y: -1)
-        guard let flipped = Self.silhouette(size: bounds.size, arrowX: arrowX).copy(using: &transform) else { return }
+        guard let flipped = PopoverGeometry.silhouette(size: bounds.size, arrowX: arrowX).copy(using: &transform) else { return }
 
         let mask = CAShapeLayer()
         mask.frame = bounds
         mask.path = flipped
         layer?.mask = mask
+    }
+}
+
+/// 网页浮窗与通知提醒共用轮廓、箭头偏移和贴近菜单栏图标的定位规则。
+enum PopoverGeometry {
+    static let cornerRadius: CGFloat = 12
+    static let topInset: CGFloat = 14
+    static let arrowHalfWidth: CGFloat = 9
+    static let tipY: CGFloat = 2
+    static let tipRadius: CGFloat = 4
+    static let baseRadius: CGFloat = 2
+
+    static var visualApexInset: CGFloat {
+        let alpha = atan(arrowHalfWidth / max(topInset - tipY, 1))
+        return tipRadius * (1 / sin(alpha) - 1)
+    }
+
+    static func arrowPosition(anchorX: CGFloat, frame: NSRect) -> CGFloat {
+        let margin = cornerRadius + 12
+        return min(max(anchorX - frame.minX, margin), frame.width - margin)
+    }
+
+    static func anchoredFrame(size: NSSize, anchor: NSRect, visibleFrame: NSRect) -> NSRect {
+        // 保持原网页浮窗的视觉距离：补偿圆角偏移，再向菜单栏上探 6pt。
+        let y = max(anchor.minY + visualApexInset + 6 - size.height, visibleFrame.minY)
+        let x = min(max(anchor.midX - size.width / 2, visibleFrame.minX + 8),
+                    visibleFrame.maxX - size.width - 8)
+        return NSRect(x: x, y: y, width: size.width, height: size.height)
     }
 
     /// 面板整体轮廓：单一连续路径（圆角矩形主体，顶边内嵌圆润三角箭头）。
@@ -102,12 +122,8 @@ final class GlassPanelRootView: NSView {
         let w = size.width, h = size.height
         let r = cornerRadius
         let base = min(topInset, h)
-        let hw: CGFloat = 9                       // 箭头底边半宽
-        let tipY: CGFloat = 2                     // 箭头顶点高度
+        let hw = arrowHalfWidth
         let ax = min(max(arrowX, r + hw), w - r - hw)
-
-        let tipRadius: CGFloat = 4                // 顶点圆角（越大越钝）
-        let baseRadius: CGFloat = 2               // 底边两角圆角
 
         let p = CGMutablePath()
         p.move(to: CGPoint(x: r, y: base))
@@ -147,6 +163,16 @@ final class GlassPanelRootView: NSView {
         let u1 = CGPoint(x: (c.x - a.x) / lenAC, y: (c.y - a.y) / lenAC)
         p.addLine(to: CGPoint(x: c.x - u1.x * radius, y: c.y - u1.y * radius))
         p.addArc(tangent1End: c, tangent2End: b, radius: radius, transform: .identity)
+    }
+}
+
+/// SwiftUI 与 AppKit 的蒙版使用同一条连续圆弧路径。
+struct PopoverOutline: Shape {
+    var arrowX: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        Path(PopoverGeometry.silhouette(size: rect.size, arrowX: arrowX))
+            .offsetBy(dx: rect.minX, dy: rect.minY)
     }
 }
 

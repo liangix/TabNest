@@ -6,6 +6,8 @@ import WebKit
 final class WebTabController: NSObject {
     let pinID: UUID
     let webView: WKWebView
+    let notificationBridge: WebNotificationBridge
+    private var notificationPin: Pin
     var autoRefreshTimer: Timer?
 
     /// 状态变化时回调（主线程）
@@ -26,12 +28,14 @@ final class WebTabController: NSObject {
     private(set) var loadErrorMessage: String?
     private(set) var isStopped = false
 
-    init(pin: Pin) {
+    init(pin: Pin, notificationStore: PinStore? = nil) {
         self.pinID = pin.id
+        self.notificationPin = pin
+        self.notificationBridge = WebNotificationBridge(pinID: pin.id, store: notificationStore ?? .shared)
 
         let config = WKWebViewConfiguration()
         config.websiteDataStore = .default()   // 登录态/cookie 持久化
-        Self.installUserScripts(on: config.userContentController, muted: pin.isMuted)
+        Self.installUserScripts(on: config.userContentController, muted: pin.isMuted, notificationPin: pin)
 
         let prefs = WKWebpagePreferences()
         prefs.allowsContentJavaScript = true
@@ -39,6 +43,10 @@ final class WebTabController: NSObject {
 
         self.webView = WKWebView(frame: .zero, configuration: config)
         super.init()
+
+        notificationBridge.webView = webView
+        config.userContentController.addScriptMessageHandler(notificationBridge, contentWorld: .page,
+                                                            name: WebNotificationBridge.handlerName)
 
         webView.navigationDelegate = self
         webView.uiDelegate = self
@@ -102,15 +110,27 @@ final class WebTabController: NSObject {
         guard muted != isMuted else { return }
         isMuted = muted
         let contentController = webView.configuration.userContentController
-        Self.installUserScripts(on: contentController, muted: muted)
+        Self.installUserScripts(on: contentController, muted: muted, notificationPin: notificationPin)
         let js = "window.__mbbMuted = \(muted ? "true" : "false"); window.__mbbApplyMuted && window.__mbbApplyMuted();"
         webView.evaluateJavaScript(js, completionHandler: nil)
     }
 
-    private static func installUserScripts(on controller: WKUserContentController, muted: Bool) {
+    func updateNotificationSettings(for pin: Pin) {
+        let changed = notificationPin.notificationsEnabled != pin.notificationsEnabled
+            || notificationPin.notificationPermissions != pin.notificationPermissions
+        notificationPin = pin
+        guard changed else { return }
+        Self.installUserScripts(on: webView.configuration.userContentController,
+                                muted: isMuted, notificationPin: pin)
+        notificationBridge.updatePermission(for: pin)
+    }
+
+    private static func installUserScripts(on controller: WKUserContentController, muted: Bool,
+                                           notificationPin: Pin) {
         controller.removeAllUserScripts()
         controller.addUserScript(externalAppBlockingUserScript())
         controller.addUserScript(muteUserScript(muted: muted))
+        controller.addUserScript(WebNotificationBridge.userScript(for: notificationPin))
     }
 
     /// 在页面脚本处理点击之前阻止 App Scheme，避免 WebKit 把请求交给 LaunchServices
@@ -429,6 +449,9 @@ final class WebTabController: NSObject {
     func stop() {
         guard !isStopped else { return }
         isStopped = true
+        notificationBridge.stop()
+        webView.configuration.userContentController.removeScriptMessageHandler(
+            forName: WebNotificationBridge.handlerName, contentWorld: .page)
         navigationRevision &+= 1
         isClearingCache = false
 
@@ -462,6 +485,7 @@ extension WebTabController: WKNavigationDelegate {
     }
 
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+        notificationBridge.invalidateDocument()
         loadErrorMessage = nil
         onUpdate?()
     }
@@ -505,6 +529,7 @@ extension WebTabController: WKNavigationDelegate {
 
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
         guard !isStopped else { return }
+        notificationBridge.invalidateDocument()
         let currentURL = webView.url?.absoluteString ?? "unknown"
         mbbTrace("WebContent 进程意外终止：\(currentURL)")
         loadErrorMessage = L10n.text(.webProcessTerminated)

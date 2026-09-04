@@ -10,7 +10,7 @@ final class PinWindowController: NSObject {
     let panelModel: PinPanelModel
 
     /// 顶部箭头区高度；主体从该位置开始。
-    static let topInset: CGFloat = 14
+    static let topInset = PopoverGeometry.topInset
 
     private let glassRoot = GlassPanelRootView(frame: NSRect(x: 0, y: 0, width: 560, height: 694))
     private let dragZone = ArrowDragZone(frame: NSRect(x: 235, y: 0, width: 90, height: 12))
@@ -33,11 +33,11 @@ final class PinWindowController: NSObject {
         }
     }
 
-    init(pin: Pin, statusItem: NSStatusItem) {
+    init(pin: Pin, statusItem: NSStatusItem, pinStore: PinStore? = nil) {
         self.pinID = pin.id
         self.statusItem = statusItem
         self.currentPin = pin
-        let webTab = WebTabController(pin: pin)
+        let webTab = WebTabController(pin: pin, notificationStore: pinStore)
         self.webTab = webTab
         self.panelModel = PinPanelModel(webView: webTab.webView)
 
@@ -109,6 +109,12 @@ final class PinWindowController: NSObject {
 
         webTab.onUpdate = { [weak self] in self?.refreshState() }
         panelModel.onRetry = { [weak self] in self?.hardReload() }
+        webTab.notificationBridge.onPermissionRequestChanged = { [weak self] request in
+            self?.panelModel.permissionRequest = request
+        }
+        panelModel.onPermissionDecision = { [weak self] id, permission in
+            self?.webTab.notificationBridge.resolvePermissionRequest(id: id, permission: permission)
+        }
         // 页面背景色采样 → 箭头底色融合
         webTab.onPageBackgroundColor = { [weak self] color in
             guard let self,
@@ -145,6 +151,7 @@ final class PinWindowController: NSObject {
     func syncPin(_ pin: Pin) {
         let oldPin = currentPin
         currentPin = pin
+        webTab.updateNotificationSettings(for: pin)
         let userAgentChanged = webTab.applyUserAgent(for: pin)
         webTab.updateAutoRefresh(interval: pin.refreshInterval)
         webTab.setPageZoom(pin.pageZoom)
@@ -183,6 +190,7 @@ final class PinWindowController: NSObject {
     }
 
     func hide() {
+        webTab.notificationBridge.cancelPermissionRequest()
         guard panel.isVisible else { return }
         NSAnimationContext.runAnimationGroup({ ctx in
             ctx.duration = 0.10
@@ -210,9 +218,7 @@ final class PinWindowController: NSObject {
             glassRoot.arrowX = 0
             return
         }
-        let relative = iconFrame.midX - panel.frame.origin.x
-        let margin = GlassPanelRootView.cornerRadius + 12
-        glassRoot.arrowX = min(max(relative, margin), panel.frame.width - margin)
+        glassRoot.arrowX = PopoverGeometry.arrowPosition(anchorX: iconFrame.midX, frame: panel.frame)
 
         // 拖拽热区只覆盖箭头附近，避免挡住网页顶部内容
         dragZone.frame = CGRect(x: glassRoot.arrowX - 45, y: 0,
@@ -250,16 +256,8 @@ final class PinWindowController: NSObject {
         size.width = min(size.width, max(panel.minSize.width, screen.visibleFrame.width - 16))
         size.height = min(size.height, max(panel.minSize.height, screen.visibleFrame.height))
 
-        // 箭头可见尖端再上移，贴近图标下缘（补偿圆角偏移后再上探 6pt）
-        let tuckIntoMenuBar = GlassPanelRootView.visualApexInset + 6
-        var y = iconFrame.minY + tuckIntoMenuBar - size.height
-        y = max(y, screen.visibleFrame.minY)   // 极小屏兜底
-
-        var x = iconFrame.midX - size.width / 2
-        x = max(screen.visibleFrame.minX + 8, x)
-        x = min(screen.visibleFrame.maxX - size.width - 8, x)
-
-        panel.setFrame(NSRect(origin: CGPoint(x: x, y: y), size: size), display: true)
+        panel.setFrame(PopoverGeometry.anchoredFrame(size: size, anchor: iconFrame,
+                                                   visibleFrame: screen.visibleFrame), display: true)
     }
 
     func closeForRemoval() {
@@ -279,6 +277,7 @@ final class PinWindowController: NSObject {
         panel.onResetZoom = nil
         hostingView?.rootView = AnyView(EmptyView())
         panelModel.onRetry = nil
+        panelModel.onPermissionDecision = nil
         hostingView?.removeFromSuperview()
         hostingView = nil
         glassRoot.subviews.forEach { $0.removeFromSuperview() }

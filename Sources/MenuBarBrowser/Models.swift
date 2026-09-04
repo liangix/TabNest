@@ -104,6 +104,9 @@ struct Pin: Identifiable, Codable, Equatable {
     var iconURLString: String = ""
     var hotkeyMode: HotkeyMode = .automatic
     var customHotkey: SiteHotkey?
+    var notificationsEnabled: Bool = true
+    /// 授权绑定精确来源（协议、域名和端口），不会随 Tab 内跨站导航转移。
+    var notificationPermissions: [String: WebNotificationPermission] = [:]
 
     var url: URL? {
         var s = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -138,6 +141,7 @@ struct Pin: Identifiable, Codable, Equatable {
     private enum CodingKeys: String, CodingKey {
         case id, name, urlString, userAgentMode, customUserAgent, refreshInterval, pageZoom
         case isMuted, iconURLString, hotkeyMode, customHotkey
+        case notificationsEnabled, notificationPermissions
     }
 
     init(id: UUID = UUID(), name: String, urlString: String,
@@ -174,6 +178,9 @@ struct Pin: Identifiable, Codable, Equatable {
         iconURLString = try c.decodeIfPresent(String.self, forKey: .iconURLString) ?? ""
         hotkeyMode = try c.decodeIfPresent(HotkeyMode.self, forKey: .hotkeyMode) ?? .automatic
         customHotkey = try c.decodeIfPresent(SiteHotkey.self, forKey: .customHotkey)
+        notificationsEnabled = try c.decodeIfPresent(Bool.self, forKey: .notificationsEnabled) ?? true
+        notificationPermissions = try c.decodeIfPresent([String: WebNotificationPermission].self,
+                                                       forKey: .notificationPermissions) ?? [:]
     }
 }
 

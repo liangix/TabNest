@@ -53,8 +53,22 @@ TabNest 是一个原生 macOS 菜单栏浏览器。每个网页拥有独立的�
 - **页面缩放**：每个站点独立保存，默认 90%，范围 50%–200%。
 - **媒体控制**：支持静音；关闭 Tab 时同步停止音视频和网络加载。
 - **网页录音**：HTTPS 页面可以请求麦克风，先确认网页来源，再进入 macOS 系统授权。
+- **网页通知**：按站点授权，在菜单栏图标下方显示提醒和未读红点，点击提醒打开对应浮窗；支持关闭通知。
 - **中英界面**：自动跟随系统首选语言，支持中文和英语，其他语言环境回退为英语。
 - **其他能力**：自动刷新、强制刷新、前进后退、登录态持久化、登录时启动。
+
+## 网页通知
+
+首次打开页面后，网站通过标准 `Notification.requestPermission()` 请求授权，再通过 `new Notification(...)` 发送通知。TabNest 在网页顶部显示非阻塞授权条，展示具体来源，可选择 **允许 / 拒绝 / 稍后**，不暂停网页交互。选择稍后或收起浮窗不保存决定；导航或关闭 Tab 会取消旧请求。授权按站点预设及精确来源（协议、域名、端口）保存，不会沿用到跨站跳转后的其他网站。请求授权需要在可见页面中由用户操作触发。
+
+- 提醒小窗在所属图标下方显示约 3 秒；收拢模式显示在应用图标下方。未读红点显示在图标右下角。
+- 菜单栏红点表示该 Tab 有未读通知；点击提醒或打开对应 Tab 后清除。收拢菜单也会标记未读站点。
+- 点击提醒的关闭按钮只隐藏提醒；点击禁用按钮，或在 **右键菜单 → 网页通知** 中取消启用，可立即停用该站点的通知。添加／编辑站点时也可关闭。
+- **右键菜单 → 网页通知** 展示当前页面来源，可直接选择 **允许此网站通知 / 禁止此网站通知 / 下次询问**，无需等待网页弹出请求。也可使用 **重置通知授权** 清除该站点预设保存的全部来源授权。
+- 提醒小窗带有指向所属菜单栏图标的箭头；收拢模式下指向 TabNest 图标，靠近屏幕边缘时箭头随图标位置调整。
+- 每个 Tab 仅保留最新一条未读通知，不保存通知内容到磁盘。关闭 Tab、页面导航或退出应用会清除对应提醒；已有授权的打开 Tab 会在下次启动时加载。
+
+这是 TabNest 内的提醒，不是 macOS 通知中心推送。仅支持已加载且保持打开的 Tab（浮窗可收起）；不识别任意网页内部提示条，不支持 Service Worker 的 `showNotification()`、Push API 或关闭 Tab 后的后台推送。后台运行仍受 WebKit／系统节流影响，不能承诺所有网站实时送达。
 
 ## 默认预设
 
@@ -111,6 +125,14 @@ cd TabNest
 swift test
 ```
 
+测试建议使用完整 Xcode（包含 XCTest）。无桌面会话的 CI 使用 `CI=true swift test`，会跳过菜单栏窗口生命周期测试。通知集成测试默认跳过，在已登录的本机桌面中可额外运行：
+
+```bash
+TABNEST_NOTIFICATION_INTEGRATION=1 swift test --filter WebNotificationTests
+```
+
+该测试使用独立临时配置和本地回环网页，短暂显示测试图标、授权弹窗及提醒，结束后清理，不修改实际站点配置。
+
 开发模式直接运行：
 
 ```bash
@@ -130,18 +152,18 @@ open "/Applications/TabNest.app"
 构建通用架构 DMG：
 
 ```bash
-TABNEST_VERSION=1.0.0 ./scripts/make_dmg.sh release
+TABNEST_VERSION=1.0.2 ./scripts/make_dmg.sh release
 ```
 
 输出文件：
 
-- `dist/TabNest-1.0.0.dmg`
-- `dist/TabNest-1.0.0.dmg.sha256`
+- `dist/TabNest-1.0.2.dmg`
+- `dist/TabNest-1.0.2.dmg.sha256`
 
 两个文件位于同一目录时可验证下载完整性：
 
 ```bash
-shasum -a 256 -c TabNest-1.0.0.dmg.sha256
+shasum -a 256 -c TabNest-1.0.2.dmg.sha256
 ```
 
 ## Release 流水线
@@ -155,8 +177,8 @@ shasum -a 256 -c TabNest-1.0.0.dmg.sha256
 5. 创建 GitHub Release 并上传两个文件。
 
 ```bash
-git tag v1.0.0
-git push origin v1.0.0
+git tag v1.0.2
+git push origin v1.0.2
 ```
 
 也可以从 GitHub Actions 页面手动运行，并指定符合语义化版本格式的标签。

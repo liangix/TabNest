@@ -102,3 +102,16 @@
 "web.loadFailed.title" = "无法载入此页面";
 "web.processTerminated" = "网页进程意外终止，TabNest 已尝试恢复。";
 "web.retry" = "重试";
+"notification.menu" = "网页通知";
+"notification.later" = "稍后";
+"notification.permission.hint" = "Tab 打开时接收提醒";
+"notification.allowOrigin" = "允许此网站通知";
+"notification.denyOrigin" = "禁止此网站通知";
+"notification.askOrigin" = "下次询问";
+"notification.enabled" = "启用通知（首次需授权）";
+"notification.disable" = "关闭此站点的通知";
+"notification.resetPermissions" = "重置通知授权";
+"notification.permission.title" = "允许通知？";
+"notification.permission.message" = "%@\n%@\n\nTab 保持打开时，通知会在菜单栏图标下方显示提醒，并显示未读红点。可随时在站点菜单中关闭。";
+"notification.unread" = "有未读通知";
+"notification.open" = "打开对应 Tab";

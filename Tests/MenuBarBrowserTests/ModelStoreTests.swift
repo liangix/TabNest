@@ -91,6 +91,8 @@ final class ModelStoreTests: XCTestCase {
         XCTAssertNil(pin.customHotkey)
         XCTAssertFalse(pin.isMuted)
         XCTAssertEqual(pin.pageZoom, PageZoom.defaultValue)
+        XCTAssertTrue(pin.notificationsEnabled)
+        XCTAssertTrue(pin.notificationPermissions.isEmpty)
     }
 
     func testPageZoomIsSteppedAndClamped() {
@@ -312,11 +314,12 @@ final class ModelStoreTests: XCTestCase {
         let controller = WebTabController(pin: Pin(name: "Test", urlString: ""))
         defer { controller.stop() }
 
-        XCTAssertEqual(controller.webView.configuration.userContentController.userScripts.count, 2)
+        XCTAssertEqual(controller.webView.configuration.userContentController.userScripts.count, 3)
         controller.setMuted(true)
         let scripts = controller.webView.configuration.userContentController.userScripts
-        XCTAssertEqual(scripts.count, 2)
+        XCTAssertEqual(scripts.count, 3)
         XCTAssertTrue(scripts.contains { $0.source.contains("__tabNestExternalSchemeGuardInstalled") })
+        XCTAssertTrue(scripts.contains { $0.source.contains("TabNestNotification") })
     }
 
     @MainActor

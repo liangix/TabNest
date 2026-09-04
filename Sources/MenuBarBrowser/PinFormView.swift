@@ -18,6 +18,7 @@ struct PinFormView: View {
     @State private var refreshInterval: TimeInterval = 0
     @State private var hotkeyMode: HotkeyMode = .automatic
     @State private var customHotkey: SiteHotkey?
+    @State private var notificationsEnabled = true
     @State private var errorMessage: String?
 
     private var isEditing: Bool {
@@ -75,6 +76,11 @@ struct PinFormView: View {
                     }
                     .labelsHidden()
                     .frame(width: 160)
+                }
+
+                labeledRow(L10n.text(.notificationMenu)) {
+                    Toggle(L10n.text(.notificationEnabled), isOn: $notificationsEnabled)
+                        .toggleStyle(.checkbox)
                 }
 
                 labeledRow(L10n.text(.formHotkey)) {
@@ -163,6 +169,7 @@ struct PinFormView: View {
         refreshInterval = pin.refreshInterval
         hotkeyMode = pin.hotkeyMode
         customHotkey = pin.customHotkey
+        notificationsEnabled = pin.notificationsEnabled
     }
 
     private func submit() {
@@ -179,6 +186,8 @@ struct PinFormView: View {
             hotkeyMode: hotkeyMode,
             customHotkey: customHotkey
         )
+        candidate.notificationsEnabled = notificationsEnabled
+        candidate.notificationPermissions = editingPin?.notificationPermissions ?? [:]
         guard let resolvedURL = candidate.url,
               ["http", "https"].contains(resolvedURL.scheme?.lowercased() ?? "") else {
             errorMessage = L10n.text(.formErrorInvalidURL)
