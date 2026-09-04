@@ -15,6 +15,7 @@ struct PresetManagerView: View {
                     Text(L10n.text(.presetsEmpty))
                         .foregroundColor(.secondary)
                     Button(L10n.text(.windowAddSite), action: onAdd)
+                        .tabNestPrimaryAction()
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
@@ -41,9 +42,11 @@ struct PresetManagerView: View {
                         }
                         .buttonStyle(.borderless)
                         .help(L10n.text(.presetsDeleteHelp))
+                        .accessibilityLabel(L10n.text(.presetsDeleteHelp))
                     }
                     .padding(.vertical, 4)
                 }
+                .listStyle(.inset)
             }
 
             Divider()
@@ -53,8 +56,10 @@ struct PresetManagerView: View {
                     .foregroundColor(.secondary)
                 Spacer()
                 Button(L10n.text(.presetsAddSiteEllipsis), action: onAdd)
+                    .tabNestPrimaryAction()
             }
             .padding(12)
+            .tabNestToolbarSurface()
         }
         .frame(width: 560, height: 400)
     }

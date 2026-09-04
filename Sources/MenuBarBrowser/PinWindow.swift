@@ -255,6 +255,31 @@ final class SolidBackdropView: NSView {
     }
 }
 
+/// Only the arrow uses material; the web viewport keeps its own opaque background.
+final class AdaptiveArrowBackdropView: NSVisualEffectView {
+    private let colorOverlay = SolidBackdropView()
+    var pageColor: NSColor? {
+        didSet {
+            guard pageColor != oldValue else { return }
+            colorOverlay.isHidden = pageColor == nil
+            colorOverlay.fillColor = pageColor ?? .windowBackgroundColor
+        }
+    }
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        material = .popover
+        blendingMode = .behindWindow
+        state = .active
+        colorOverlay.isHidden = true
+        colorOverlay.frame = bounds
+        colorOverlay.autoresizingMask = [.width, .height]
+        addSubview(colorOverlay)
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+}
+
 @MainActor
 enum PanelBackdrop {
     static func make() -> NSView {

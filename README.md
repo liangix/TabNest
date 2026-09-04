@@ -45,6 +45,7 @@ TabNest 是一个原生 macOS 菜单栏浏览器。每个网页拥有独立的�
 ## 核心能力
 
 - **菜单栏原生体验**：面板始终停靠在所属图标正下方，拖动缩放时保持居中对齐。
+- **自适应箭头**：跟随箭头下方的网页背景色；图片、渐变或无法取色时使用系统半透明材质。滚动与主题变化触发更新，连续事件按 80 毫秒节流，每 3 秒兜底检测；浮窗隐藏后停止监听和定时检测。
 - **展开或收拢**：每个 Tab 可以显示为独立 favicon，也可以收拢为单个 TabNest 图标。
 - **预设与 Tab 分离**：关闭 Tab 不会删除预设站点，随时可以从右键菜单重新打开。
 - **站点快捷键**：默认使用 `⌥⇧1–9`，支持为每个站点录制自定义全局快捷键或关闭快捷键。
@@ -56,6 +57,10 @@ TabNest 是一个原生 macOS 菜单栏浏览器。每个网页拥有独立的�
 - **网页通知**：按站点授权，在菜单栏图标下方显示提醒和未读红点，点击提醒打开对应浮窗；支持关闭通知。
 - **中英界面**：自动跟随系统首选语言，支持中文和英语，其他语言环境回退为英语。
 - **其他能力**：自动刷新、强制刷新、前进后退、登录态持久化、登录时启动。
+
+## 界面与系统兼容
+
+界面使用系统原生样式：macOS 26 / 27 使用 Liquid Glass 提醒和主操作按钮，macOS 13–15 回退为系统材质及标准按钮。支持深色模式、减少透明度、增强对比度和减少动态效果；网页自身保持原样，不额外覆盖玻璃效果。较旧 SDK 构建自动使用兼容样式，最低系统要求仍为 macOS 13。
 
 ## 网页通知
 
@@ -125,13 +130,13 @@ cd TabNest
 swift test
 ```
 
-测试建议使用完整 Xcode（包含 XCTest）。无桌面会话的 CI 使用 `CI=true swift test`，会跳过菜单栏窗口生命周期测试。通知集成测试默认跳过，在已登录的本机桌面中可额外运行：
+测试建议使用完整 Xcode（包含 XCTest）。无桌面会话的 CI 使用 `CI=true swift test`，会跳过菜单栏窗口生命周期测试。原生界面集成测试默认跳过，在已登录的本机桌面中可额外运行：
 
 ```bash
-TABNEST_NOTIFICATION_INTEGRATION=1 swift test --filter WebNotificationTests
+TABNEST_NOTIFICATION_INTEGRATION=1 swift test
 ```
 
-该测试使用独立临时配置和本地回环网页，短暂显示测试图标、授权弹窗及提醒，结束后清理，不修改实际站点配置。
+这些测试覆盖通知授权与提醒、浮窗首次定位、动态箭头取色及界面兼容样式，使用独立临时配置和本地测试网页，短暂显示测试窗口，结束后清理，不修改实际站点配置。
 
 开发模式直接运行：
 
@@ -152,18 +157,18 @@ open "/Applications/TabNest.app"
 构建通用架构 DMG：
 
 ```bash
-TABNEST_VERSION=1.0.2 ./scripts/make_dmg.sh release
+TABNEST_VERSION=1.0.3 ./scripts/make_dmg.sh release
 ```
 
 输出文件：
 
-- `dist/TabNest-1.0.2.dmg`
-- `dist/TabNest-1.0.2.dmg.sha256`
+- `dist/TabNest-1.0.3.dmg`
+- `dist/TabNest-1.0.3.dmg.sha256`
 
 两个文件位于同一目录时可验证下载完整性：
 
 ```bash
-shasum -a 256 -c TabNest-1.0.2.dmg.sha256
+shasum -a 256 -c TabNest-1.0.3.dmg.sha256
 ```
 
 ## Release 流水线
@@ -177,8 +182,8 @@ shasum -a 256 -c TabNest-1.0.2.dmg.sha256
 5. 创建 GitHub Release 并上传两个文件。
 
 ```bash
-git tag v1.0.2
-git push origin v1.0.2
+git tag v1.0.3
+git push origin v1.0.3
 ```
 
 也可以从 GitHub Actions 页面手动运行，并指定符合语义化版本格式的标签。

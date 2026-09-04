@@ -52,9 +52,9 @@ struct PinFormView: View {
 
                         Group {
                             if uaMode == .custom {
-                            TextField(L10n.text(.formCustomUAPlaceholder), text: $customUA)
-                                .textFieldStyle(.roundedBorder)
-                                .font(.system(size: 11))
+                                TextField(L10n.text(.formCustomUAPlaceholder), text: $customUA)
+                                    .textFieldStyle(.roundedBorder)
+                                    .font(.system(size: 11))
                             } else {
                                 Text(uaDescription)
                                     .font(.caption)
@@ -123,18 +123,22 @@ struct PinFormView: View {
             if let errorMessage {
                 Text(errorMessage)
                     .font(.caption)
-                    .foregroundColor(.red)
+                    .foregroundStyle(.red)
             }
 
             HStack {
                 Spacer()
-                Button(L10n.text(.commonCancel), action: onCancel).keyboardShortcut(.cancelAction)
+                Button(L10n.text(.commonCancel), action: onCancel)
+                    .buttonStyle(.bordered)
+                    .keyboardShortcut(.cancelAction)
                 Button(isEditing ? L10n.text(.commonSave) : L10n.text(.commonAdd), action: submit)
+                    .tabNestPrimaryAction()
                     .keyboardShortcut(.defaultAction)
                     .disabled(urlString.trimmingCharacters(in: .whitespaces).isEmpty)
             }
         }
         .padding(16)
+        .background(Color(nsColor: .windowBackgroundColor))
         .onAppear(perform: loadInitialValues)
     }
 
@@ -143,7 +147,8 @@ struct PinFormView: View {
     private func labeledRow<Content: View>(_ label: String, @ViewBuilder content: () -> Content) -> some View {
         HStack(alignment: .top, spacing: 10) {
             Text(label)
-                .font(.subheadline)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(.secondary)
                 .frame(width: L10n.language == .english ? 88 : 64, alignment: .trailing)
             content()
         }

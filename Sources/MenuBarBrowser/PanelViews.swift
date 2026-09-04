@@ -53,7 +53,7 @@ struct PinPanelRootView: View {
                     }
                     .padding(24)
                     .frame(maxWidth: 360)
-                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
+                    .tabNestFloatingSurface(in: RoundedRectangle(cornerRadius: PopoverGeometry.cornerRadius))
                     .shadow(color: .black.opacity(0.12), radius: 12, y: 5)
                     .padding(24)
                 }
@@ -88,7 +88,7 @@ struct NotificationPermissionBar: View {
         }
         .padding(.horizontal, 10).padding(.vertical, 6)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.regularMaterial)
+        .tabNestToolbarSurface()
     }
 
     private var title: some View {

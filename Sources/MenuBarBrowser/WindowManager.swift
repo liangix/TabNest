@@ -82,7 +82,7 @@ final class WindowManager {
         guard let controller = controller(for: pinID) else { return }
         selectedPinID = pinID
         mbbTrace("切换站点面板 \(pinID)")
-        if controller.isVisible {
+        if controller.wantsVisible {
             controller.hide()
         } else {
             markNotificationsRead(pinID)
@@ -104,9 +104,7 @@ final class WindowManager {
 
     func hideAll(except pinID: UUID?) {
         for (id, controller) in controllers where id != pinID {
-            if controller.isVisible {
-                controller.hide()
-            }
+            controller.hide()
         }
     }
 

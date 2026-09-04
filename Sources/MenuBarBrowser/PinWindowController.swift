@@ -1,6 +1,20 @@
 import AppKit
 import SwiftUI
 
+/// Status items briefly have a zero-height window while AppKit lays out the menu bar.
+struct StatusItemAnchor {
+    let frame: NSRect
+    let visibleFrame: NSRect
+
+    @MainActor
+    static func resolve(_ item: NSStatusItem) -> StatusItemAnchor? {
+        guard let window = item.button?.window, let screen = window.screen,
+              window.frame.width > 0, window.frame.height > 0,
+              window.frame.intersects(screen.frame) else { return nil }
+        return StatusItemAnchor(frame: window.frame, visibleFrame: screen.visibleFrame)
+    }
+}
+
 /// 单个固定站点的完整窗口单元：菜单栏图标 ⇄ 带箭头的浮动面板 ⇄ 常驻 WebView。
 @MainActor
 final class PinWindowController: NSObject {
@@ -15,6 +29,8 @@ final class PinWindowController: NSObject {
     private let glassRoot = GlassPanelRootView(frame: NSRect(x: 0, y: 0, width: 560, height: 694))
     private let dragZone = ArrowDragZone(frame: NSRect(x: 235, y: 0, width: 90, height: 12))
     private let backdropView = PanelBackdrop.make()
+    private let arrowBackdrop = AdaptiveArrowBackdropView(frame: .zero)
+    private var backgroundSamplingTimer: Timer?
     private let resizeOverlay = ResizeOverlayView(frame: .zero)
     private weak var hostingView: NSHostingView<AnyView>?
     private weak var statusItem: NSStatusItem?
@@ -22,21 +38,25 @@ final class PinWindowController: NSObject {
     private var currentPin: Pin
     private var isAnchoringResize = false
     private var isClosed = false
+    private let anchorProvider: @MainActor (NSStatusItem) -> StatusItemAnchor?
+    private var anchorRetry: DispatchWorkItem?
+    private var presentationRevision = 0
+    private(set) var wantsVisible = false
 
     var isVisible: Bool { panel.isVisible }
 
     func updateStatusItem(_ item: NSStatusItem) {
+        statusItem?.button?.highlight(false)
         statusItem = item
-        if isVisible {
-            placeUnderStatusItem(resetSize: false)
-            alignArrow()
-        }
+        refreshAnchor()
     }
 
-    init(pin: Pin, statusItem: NSStatusItem, pinStore: PinStore? = nil) {
+    init(pin: Pin, statusItem: NSStatusItem, pinStore: PinStore? = nil,
+         anchorProvider: @escaping @MainActor (NSStatusItem) -> StatusItemAnchor? = StatusItemAnchor.resolve) {
         self.pinID = pin.id
         self.statusItem = statusItem
         self.currentPin = pin
+        self.anchorProvider = anchorProvider
         let webTab = WebTabController(pin: pin, notificationStore: pinStore)
         self.webTab = webTab
         self.panelModel = PinPanelModel(webView: webTab.webView)
@@ -69,6 +89,8 @@ final class PinWindowController: NSObject {
 
         backdropView.translatesAutoresizingMaskIntoConstraints = false
         glassRoot.addSubview(backdropView)
+        arrowBackdrop.translatesAutoresizingMaskIntoConstraints = false
+        glassRoot.addSubview(arrowBackdrop)
 
         let hosting = NSHostingView(rootView: AnyView(PinPanelRootView(model: panelModel)))
         hostingView = hosting
@@ -92,8 +114,13 @@ final class PinWindowController: NSObject {
 
             backdropView.leadingAnchor.constraint(equalTo: glassRoot.leadingAnchor),
             backdropView.trailingAnchor.constraint(equalTo: glassRoot.trailingAnchor),
-            backdropView.topAnchor.constraint(equalTo: glassRoot.topAnchor),
+            backdropView.topAnchor.constraint(equalTo: glassRoot.topAnchor, constant: Self.topInset),
             backdropView.bottomAnchor.constraint(equalTo: glassRoot.bottomAnchor),
+
+            arrowBackdrop.leadingAnchor.constraint(equalTo: glassRoot.leadingAnchor),
+            arrowBackdrop.trailingAnchor.constraint(equalTo: glassRoot.trailingAnchor),
+            arrowBackdrop.topAnchor.constraint(equalTo: glassRoot.topAnchor),
+            arrowBackdrop.heightAnchor.constraint(equalToConstant: Self.topInset),
 
             hosting.leadingAnchor.constraint(equalTo: glassRoot.leadingAnchor),
             hosting.trailingAnchor.constraint(equalTo: glassRoot.trailingAnchor),
@@ -117,9 +144,7 @@ final class PinWindowController: NSObject {
         }
         // 页面背景色采样 → 箭头底色融合
         webTab.onPageBackgroundColor = { [weak self] color in
-            guard let self,
-                  let solid = self.backdropView as? SolidBackdropView else { return }
-            solid.fillColor = color ?? .windowBackgroundColor
+            self?.arrowBackdrop.pageColor = color
         }
         refreshState()
 
@@ -133,6 +158,21 @@ final class PinWindowController: NSObject {
         panel.onResetZoom = { [weak self] in self?.resetZoom() }
 
         let center = NotificationCenter.default
+        // Follow the icon after initial layout, menu-bar reordering and display changes.
+        for name in [NSWindow.didMoveNotification, NSWindow.didResizeNotification,
+                     NSWindow.didChangeScreenNotification] {
+            observers.append(center.addObserver(forName: name, object: nil, queue: .main) { [weak self] note in
+                MainActor.assumeIsolated {
+                    guard let self, let window = note.object as? NSWindow,
+                          window === self.statusItem?.button?.window else { return }
+                    self.refreshAnchor()
+                }
+            })
+        }
+        observers.append(center.addObserver(forName: NSApplication.didChangeScreenParametersNotification,
+                                            object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.refreshAnchor() }
+        })
         observers.append(center.addObserver(forName: NSWindow.didMoveNotification, object: panel, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.alignArrow() }
         })
@@ -170,34 +210,67 @@ final class PinWindowController: NSObject {
     }
 
     func show() {
-        // 始终停靠到所属图标正下方（跟随图标所在屏幕），仅保留记忆中的尺寸
-        placeUnderStatusItem(resetSize: false)
-        alignArrow()
+        guard !isClosed else { return }
+        presentationRevision += 1
+        wantsVisible = true
+        refreshAnchor()
+    }
 
+    private func refreshAnchor(attempt: Int = 0) {
+        guard wantsVisible, !isClosed else { return }
+        anchorRetry?.cancel()
+        anchorRetry = nil
+        // 始终停靠到所属图标正下方（跟随图标所在屏幕），仅保留记忆中的尺寸
+        guard placeUnderStatusItem(resetSize: false) else {
+            // Never expose the initial (0, 0) frame or an obsolete icon's position.
+            panel.orderOut(nil)
+            stopBackgroundSampling()
+            guard attempt < 100 else {
+                wantsVisible = false
+                statusItem?.button?.highlight(false)
+                return
+            }
+            let retry = DispatchWorkItem { [weak self] in self?.refreshAnchor(attempt: attempt + 1) }
+            anchorRetry = retry
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: retry)
+            return
+        }
+        alignArrow()
+        statusItem?.button?.highlight(true)
+        // Re-anchoring an already visible window must not restart its fade-in.
+        guard !panel.isVisible || panel.alphaValue < 1 else { return }
         panel.alphaValue = 0
         panel.orderFrontRegardless()
         panel.makeKey()
+        startBackgroundSampling()
         NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = 0.12
+            ctx.duration = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? 0 : 0.12
             panel.animator().alphaValue = 1
         }
-        statusItem?.button?.highlight(true)
-
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
-            guard let self, let window = self.webTab.webView.window else { return }
+            guard let self, self.wantsVisible, !self.isClosed, self.panel.isVisible,
+                  let window = self.webTab.webView.window else { return }
             window.makeFirstResponder(self.webTab.webView)
         }
     }
 
     func hide() {
+        stopBackgroundSampling()
+        wantsVisible = false
+        presentationRevision += 1
+        let revision = presentationRevision
+        anchorRetry?.cancel()
+        anchorRetry = nil
+        statusItem?.button?.highlight(false)
         webTab.notificationBridge.cancelPermissionRequest()
         guard panel.isVisible else { return }
         NSAnimationContext.runAnimationGroup({ ctx in
-            ctx.duration = 0.10
+            ctx.duration = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? 0 : 0.10
             panel.animator().alphaValue = 0
         }, completionHandler: { [weak self] in
             guard let self else { return }
             MainActor.assumeIsolated {
+                guard self.presentationRevision == revision else { return }
                 self.panel.orderOut(nil)
                 self.statusItem?.button?.highlight(false)
             }
@@ -205,7 +278,7 @@ final class PinWindowController: NSObject {
     }
 
     func toggle() {
-        if isVisible {
+        if wantsVisible {
             hide()
         } else {
             show()
@@ -214,11 +287,12 @@ final class PinWindowController: NSObject {
 
     /// 面板显示/移动后，重算箭头顶点对齐所属图标的中心。
     private func alignArrow() {
-        guard let iconFrame = statusItem?.button?.window?.frame else {
+        guard let item = statusItem, let iconFrame = anchorProvider(item)?.frame else {
             glassRoot.arrowX = 0
             return
         }
         glassRoot.arrowX = PopoverGeometry.arrowPosition(anchorX: iconFrame.midX, frame: panel.frame)
+        webTab.backgroundSampleXFraction = glassRoot.arrowX / max(panel.frame.width, 1)
 
         // 拖拽热区只覆盖箭头附近，避免挡住网页顶部内容
         dragZone.frame = CGRect(x: glassRoot.arrowX - 45, y: 0,
@@ -243,26 +317,30 @@ final class PinWindowController: NSObject {
 
     /// 停靠到所属图标正下方：跟随图标所在屏幕，
     /// 顶部上探进菜单栏（tuck），使箭头尖端尽可能贴近图标。
-    private func placeUnderStatusItem(resetSize: Bool) {
-        guard let button = statusItem?.button,
-              let buttonWindow = button.window,
-              // 优先使用图标所在的屏幕，而非主屏幕
-              let screen = buttonWindow.screen ?? NSScreen.main else { return }
-
-        let iconFrame = buttonWindow.frame
+    @discardableResult
+    private func placeUnderStatusItem(resetSize: Bool) -> Bool {
+        guard let item = statusItem, let anchor = anchorProvider(item) else { return false }
+        let iconFrame = anchor.frame
         var size = resetSize ? NSSize(width: 560, height: 680 + Self.topInset) : panel.frame.size
         size.width = max(size.width, panel.minSize.width)
         size.height = max(size.height, panel.minSize.height)
-        size.width = min(size.width, max(panel.minSize.width, screen.visibleFrame.width - 16))
-        size.height = min(size.height, max(panel.minSize.height, screen.visibleFrame.height))
+        size.width = min(size.width, max(panel.minSize.width, anchor.visibleFrame.width - 16))
+        size.height = min(size.height, max(panel.minSize.height, anchor.visibleFrame.height))
 
         panel.setFrame(PopoverGeometry.anchoredFrame(size: size, anchor: iconFrame,
-                                                   visibleFrame: screen.visibleFrame), display: true)
+                                                   visibleFrame: anchor.visibleFrame), display: true)
+        return true
     }
 
     func closeForRemoval() {
         guard !isClosed else { return }
         isClosed = true
+        stopBackgroundSampling()
+        wantsVisible = false
+        presentationRevision += 1
+        anchorRetry?.cancel()
+        anchorRetry = nil
+        statusItem?.button?.highlight(false)
         panel.orderOut(nil)
         observers.forEach { NotificationCenter.default.removeObserver($0) }
         observers.removeAll()
@@ -288,6 +366,28 @@ final class PinWindowController: NSObject {
     }
 
     // MARK: - 页面动作（供菜单/快捷键调用）
+
+    private func startBackgroundSampling() {
+        guard backgroundSamplingTimer == nil else { return }
+        webTab.setBackgroundTrackingEnabled(true)
+        webTab.samplePageBackgroundColor()
+        // Events handle scrolling/theme changes; low-frequency reads cover unobservable CSS changes.
+        let timer = Timer(timeInterval: PageAppearanceObserver.fallbackInterval, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self, self.wantsVisible, self.panel.isVisible else { return }
+                self.webTab.samplePageBackgroundColor()
+            }
+        }
+        timer.tolerance = 0.3
+        backgroundSamplingTimer = timer
+        RunLoop.main.add(timer, forMode: .common)
+    }
+
+    private func stopBackgroundSampling() {
+        webTab.setBackgroundTrackingEnabled(false)
+        backgroundSamplingTimer?.invalidate()
+        backgroundSamplingTimer = nil
+    }
 
     func reload()      { webTab.webView.reload() }
     func hardReload()  { webTab.reloadApplyingUserAgent(for: currentPin) }

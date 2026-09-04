@@ -332,15 +332,21 @@ final class WebNotificationTests: XCTestCase {
             registry.stopMonitoring()
         }
         let controller = try XCTUnwrap(registry.controller(for: pin.id))
-        // A newly created test status item is attached to its screen on the next run-loop turn.
+        // Ask to show immediately: production must wait for menu-bar layout itself.
+        registry.show(pinID: pin.id)
         for _ in 0..<50 {
-            if let window = status.statusItem(for: pin.id)?.button?.window,
-               window.screen != nil, window.frame.height > 0 { break }
+            if controller.isVisible { break }
             try await Task.sleep(nanoseconds: 50_000_000)
         }
+        XCTAssertTrue(controller.isVisible)
         XCTAssertNotNil(status.statusItem(for: pin.id)?.button?.window?.screen)
         XCTAssertGreaterThan(try XCTUnwrap(status.statusItem(for: pin.id)?.button?.window).frame.height, 0)
-        registry.show(pinID: pin.id)
+        let initialAnchor = try XCTUnwrap(StatusItemAnchor.resolve(try XCTUnwrap(status.statusItem(for: pin.id))))
+        let expectedInitialFrame = PopoverGeometry.anchoredFrame(size: controller.panel.frame.size,
+                       anchor: initialAnchor.frame, visibleFrame: initialAnchor.visibleFrame)
+        // AppKit rounds the window origin to the backing screen's pixel grid.
+        XCTAssertEqual(controller.panel.frame.minX, expectedInitialFrame.minX, accuracy: 1)
+        XCTAssertEqual(controller.panel.frame.maxY, expectedInitialFrame.maxY, accuracy: 1)
         try await waitUntilLoaded(controller.webTab.webView)
         let view = controller.webTab.webView
         // No gesture: no prompt and no accidental grant.
@@ -389,12 +395,8 @@ final class WebNotificationTests: XCTestCase {
         }
         let prompt = try XCTUnwrap(controller.panelModel.permissionRequest)
         XCTAssertNil(controller.panel.attachedSheet)
-        if ProcessInfo.processInfo.environment["TABNEST_NOTIFICATION_PREVIEW"] == "1",
-           let content = controller.panel.contentView,
-           let bitmap = content.bitmapImageRepForCachingDisplay(in: content.bounds) {
-            content.cacheDisplay(in: content.bounds, to: bitmap)
-            try bitmap.representation(using: .png, properties: [:])?
-                .write(to: URL(fileURLWithPath: "/tmp/tabnest-permission-preview.png"))
+        if ProcessInfo.processInfo.environment["TABNEST_NOTIFICATION_PREVIEW"] == "1" {
+            try await VisualStyleTests.captureWindow(controller.panel, path: "/tmp/tabnest-permission-preview.png")
         }
         controller.panelModel.onPermissionDecision?(prompt.id, .granted)
         let permission = try await request.value
@@ -445,12 +447,8 @@ final class WebNotificationTests: XCTestCase {
         XCTAssertEqual(banner.frame.maxY, controller.panel.frame.maxY, accuracy: 1,
                        "Reminder and browser arrows must have the same distance from their icon")
 
-        if ProcessInfo.processInfo.environment["TABNEST_NOTIFICATION_PREVIEW"] == "1", let content = banner.contentView {
-            content.layoutSubtreeIfNeeded()
-            let bitmap = try XCTUnwrap(content.bitmapImageRepForCachingDisplay(in: content.bounds))
-            content.cacheDisplay(in: content.bounds, to: bitmap)
-            try XCTUnwrap(bitmap.representation(using: .png, properties: [:]))
-                .write(to: URL(fileURLWithPath: "/tmp/tabnest-notification-preview.png"))
+        if ProcessInfo.processInfo.environment["TABNEST_NOTIFICATION_PREVIEW"] == "1" {
+            try await VisualStyleTests.captureWindow(banner, path: "/tmp/tabnest-notification-preview.png")
         }
         settings.statusIconMode = .collapsed
         status.sync(with: store.pins)

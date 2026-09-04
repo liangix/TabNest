@@ -15,6 +15,18 @@ final class WebTabController: NSObject {
 
     /// 页面顶部背景色采样完成回调（用于箭头底色融合）
     var onPageBackgroundColor: ((NSColor?) -> Void)?
+    var backgroundSampleXFraction: CGFloat = 0.5 {
+        didSet {
+            if backgroundTrackingEnabled, abs(backgroundSampleXFraction - oldValue) > 0.001 {
+                samplePageBackgroundColor()
+            }
+        }
+    }
+    private var backgroundSampleInFlight = false
+    private var backgroundSamplePending = false
+    private var backgroundDocumentRevision: UInt = 0
+    private let pageAppearanceObserver = PageAppearanceObserver()
+    private(set) var backgroundTrackingEnabled = false
 
     private var observers: [NSKeyValueObservation] = []
     private var pendingIconSignature: String = ""
@@ -43,6 +55,13 @@ final class WebTabController: NSObject {
 
         self.webView = WKWebView(frame: .zero, configuration: config)
         super.init()
+
+        pageAppearanceObserver.onChange = { [weak self] in
+            guard let self, self.backgroundTrackingEnabled else { return }
+            self.samplePageBackgroundColor()
+        }
+        config.userContentController.add(pageAppearanceObserver, contentWorld: .defaultClient,
+                                         name: PageAppearanceObserver.handlerName)
 
         notificationBridge.webView = webView
         config.userContentController.addScriptMessageHandler(notificationBridge, contentWorld: .page,
@@ -333,37 +352,82 @@ final class WebTabController: NSObject {
         return ["http", "https", "about", "blob", "data"].contains(scheme)
     }
 
-    /// 采样页面顶部中心的实际背景色（沿 DOM 向上找第一个不透明背景）。
+    /// Sample beneath the arrow, including translucent layers. Images/gradients use native material.
     func samplePageBackgroundColor() {
+        guard !isStopped else { return }
+        guard !backgroundSampleInFlight else {
+            backgroundSamplePending = backgroundTrackingEnabled
+            return
+        }
+        backgroundSampleInFlight = true
+        let revision = backgroundDocumentRevision
+        let fraction = backgroundSampleXFraction.isFinite ? min(max(backgroundSampleXFraction, 0), 1) : 0.5
         let js = """
-        (function(){
-          function solid(c){
-            if(!c || c === 'transparent') return null;
-            if(c[0] === '#') return c;
-            var m = c.match(/rgba?\\(([^)]+)\\)/);
-            if(!m) return null;
-            var p = m[1].split(',').map(parseFloat);
-            if(p.length >= 3 && (p.length < 4 || p[3] > 0)) return 'rgb(' + p[0] + ',' + p[1] + ',' + p[2] + ')';
-            return null;
-          }
-          var el = document.elementFromPoint(window.innerWidth / 2, 3);
-          var n = el;
-          while(n){
-            var v = solid(getComputedStyle(n).backgroundColor);
-            if(v) return v;
-            n = n.parentElement;
+        (() => {
+          const x = Math.min(innerWidth - 1, Math.max(0, innerWidth * \(fraction)));
+          const canvas = document.createElement('canvas');
+          canvas.width = canvas.height = 1;
+          const ctx = canvas.getContext('2d', {willReadFrequently: true});
+          if (!ctx) return null;
+          let r = 0, g = 0, b = 0, remaining = 1;
+          for (const el of document.elementsFromPoint(x, 1)) {
+            const style = getComputedStyle(el);
+            // A flat CSS color cannot faithfully represent these painted surfaces.
+            if (style.backgroundImage !== 'none' || Number(style.opacity) !== 1 ||
+                style.mixBlendMode !== 'normal' || style.filter !== 'none' ||
+                (style.backdropFilter || style.webkitBackdropFilter || 'none') !== 'none' ||
+                ['IMG', 'VIDEO', 'CANVAS', 'IFRAME', 'SVG'].includes(el.tagName.toUpperCase())) return null;
+            ctx.clearRect(0, 0, 1, 1);
+            ctx.fillStyle = style.backgroundColor;
+            ctx.fillRect(0, 0, 1, 1);
+            const color = ctx.getImageData(0, 0, 1, 1).data;
+            const alpha = color[3] / 255;
+            r += color[0] * alpha * remaining;
+            g += color[1] * alpha * remaining;
+            b += color[2] * alpha * remaining;
+            remaining *= 1 - alpha;
+            if (remaining < 0.001) return [r / 255, g / 255, b / 255];
           }
           return null;
-        })();
+        })()
         """
-        webView.evaluateJavaScript(js) { [weak self] result, _ in
-            guard let css = result as? String else {
-                DispatchQueue.main.async { self?.onPageBackgroundColor?(nil) }
-                return
+        // Keep sampling independent of website overrides of JavaScript built-ins.
+        webView.evaluateJavaScript(js, in: nil, in: .defaultClient) { [weak self] result in
+            guard let self else { return }
+            self.backgroundSampleInFlight = false
+            defer {
+                if self.backgroundSamplePending {
+                    self.backgroundSamplePending = false
+                    if self.backgroundTrackingEnabled { self.samplePageBackgroundColor() }
+                }
             }
-            let color = Self.color(fromCSS: css)
-            DispatchQueue.main.async { self?.onPageBackgroundColor?(color) }
+            guard !self.isStopped, self.backgroundDocumentRevision == revision else { return }
+            if case .success(let value) = result, let rgb = value as? [Double], rgb.count == 3 {
+                self.onPageBackgroundColor?(NSColor(srgbRed: rgb[0], green: rgb[1], blue: rgb[2], alpha: 1))
+            } else {
+                self.onPageBackgroundColor?(nil)
+            }
         }
+    }
+
+    func setBackgroundTrackingEnabled(_ enabled: Bool) {
+        guard !isStopped, backgroundTrackingEnabled != enabled else { return }
+        backgroundTrackingEnabled = enabled
+        backgroundDocumentRevision &+= 1 // Discard any read that started before hiding/reopening.
+        backgroundSamplePending = false
+        if enabled {
+            installBackgroundObservation()
+        } else {
+            webView.evaluateJavaScript("window.__tabNestPageAppearance?.setActive(false)",
+                                       in: nil, in: .defaultClient, completionHandler: nil)
+        }
+    }
+
+    private func installBackgroundObservation() {
+        guard backgroundTrackingEnabled, !isStopped else { return }
+        webView.evaluateJavaScript(PageAppearanceObserver.installScript +
+                                   "window.__tabNestPageAppearance.setActive(true);",
+                                   in: nil, in: .defaultClient, completionHandler: nil)
     }
 
     /// 解析 CSS 颜色字符串（支持 rgb/rgba/#hex）
@@ -448,7 +512,11 @@ final class WebTabController: NSObject {
 
     func stop() {
         guard !isStopped else { return }
+        setBackgroundTrackingEnabled(false)
         isStopped = true
+        pageAppearanceObserver.onChange = nil
+        webView.configuration.userContentController.removeScriptMessageHandler(
+            forName: PageAppearanceObserver.handlerName, contentWorld: .defaultClient)
         notificationBridge.stop()
         webView.configuration.userContentController.removeScriptMessageHandler(
             forName: WebNotificationBridge.handlerName, contentWorld: .page)
@@ -485,6 +553,9 @@ extension WebTabController: WKNavigationDelegate {
     }
 
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+        backgroundDocumentRevision &+= 1
+        onPageBackgroundColor?(nil)
+        installBackgroundObservation()
         notificationBridge.invalidateDocument()
         loadErrorMessage = nil
         onUpdate?()
@@ -506,10 +577,9 @@ extension WebTabController: WKNavigationDelegate {
         webContentRecoveryAttempts = 0
         onUpdate?()
         extractFavicon()
-        samplePageBackgroundColor()
-        // SPA 页面样式常延迟应用，稍后补采一次
+        installBackgroundObservation()
+        if backgroundTrackingEnabled { samplePageBackgroundColor() }
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
-            self?.samplePageBackgroundColor()
             self?.extractFavicon()
         }
         // 部分站点在页面框架加载完成后才异步写入 favicon。

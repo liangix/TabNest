@@ -119,7 +119,7 @@ private struct NotificationToastView: View {
         .padding(12)
         .padding(.top, PopoverGeometry.topInset)
         .frame(width: 310, alignment: .leading)
-        .background(.regularMaterial, in: PopoverOutline(arrowX: layout.arrowX))
+        .tabNestFloatingSurface(in: PopoverOutline(arrowX: layout.arrowX))
     }
 }
 
