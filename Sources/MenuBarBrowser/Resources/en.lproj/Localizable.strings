@@ -73,6 +73,7 @@
 "menu.noOpenTabs" = "No Open Tabs";
 "menu.presets.ellipsis" = "Preset Sites…";
 "menu.reload" = "Reload";
+"menu.clearCacheAndReload" = "Clear Cache and Reload";
 "menu.mute" = "Mute";
 "menu.unmute" = "Unmute";
 "menu.openInDefaultBrowser" = "Open in Default Browser";
@@ -98,3 +99,6 @@
 "microphone.permission.title" = "Allow This Website to Use the Microphone?";
 "microphone.permission.message" = "%@ is requesting audio recording access. macOS may show another microphone permission prompt after you allow it.";
 "web.message.title" = "Website Message";
+"web.loadFailed.title" = "This Page Couldn’t Be Loaded";
+"web.processTerminated" = "The web page process stopped unexpectedly. TabNest tried to restore it.";
+"web.retry" = "Try Again";

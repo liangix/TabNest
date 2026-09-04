@@ -92,6 +92,7 @@ enum L10nKey: String, CaseIterable {
     case menuNoOpenTabs = "menu.noOpenTabs"
     case menuPresetsEllipsis = "menu.presets.ellipsis"
     case menuReload = "menu.reload"
+    case menuClearCacheAndReload = "menu.clearCacheAndReload"
     case menuMute = "menu.mute"
     case menuUnmute = "menu.unmute"
     case menuOpenInDefaultBrowser = "menu.openInDefaultBrowser"
@@ -117,6 +118,9 @@ enum L10nKey: String, CaseIterable {
     case microphonePermissionTitle = "microphone.permission.title"
     case microphonePermissionMessage = "microphone.permission.message"
     case webMessageTitle = "web.message.title"
+    case webLoadFailedTitle = "web.loadFailed.title"
+    case webProcessTerminated = "web.processTerminated"
+    case webRetry = "web.retry"
 }
 
 enum L10n {

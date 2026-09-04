@@ -73,6 +73,7 @@
 "menu.noOpenTabs" = "没有打开的 Tab";
 "menu.presets.ellipsis" = "预设站点…";
 "menu.reload" = "重新载入";
+"menu.clearCacheAndReload" = "清除缓存并重新载入";
 "menu.mute" = "静音";
 "menu.unmute" = "取消静音";
 "menu.openInDefaultBrowser" = "在默认浏览器打开";
@@ -98,3 +99,6 @@
 "microphone.permission.title" = "允许此网页使用麦克风？";
 "microphone.permission.message" = "%@ 请求录音。允许后，macOS 可能继续显示系统麦克风授权提示。";
 "web.message.title" = "网页消息";
+"web.loadFailed.title" = "无法载入此页面";
+"web.processTerminated" = "网页进程意外终止，TabNest 已尝试恢复。";
+"web.retry" = "重试";

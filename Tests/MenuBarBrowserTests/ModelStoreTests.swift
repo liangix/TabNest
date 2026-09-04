@@ -1,4 +1,5 @@
 import AppKit
+import WebKit
 import XCTest
 @testable import MenuBarBrowser
 
@@ -175,6 +176,27 @@ final class ModelStoreTests: XCTestCase {
         XCTAssertEqual(request.url, url)
         XCTAssertEqual(request.cachePolicy, .reloadIgnoringLocalAndRemoteCacheData)
         XCTAssertEqual(request.timeoutInterval, 60)
+    }
+
+    @MainActor
+    func testSingleSiteCacheMatchingIncludesParentAndChildDomainsOnly() {
+        XCTAssertTrue(WebTabController.websiteDataRecordMatches("example.com", host: "www.example.com"))
+        XCTAssertTrue(WebTabController.websiteDataRecordMatches("cdn.example.com", host: "example.com"))
+        XCTAssertTrue(WebTabController.websiteDataRecordMatches("localhost", host: "localhost"))
+        XCTAssertFalse(WebTabController.websiteDataRecordMatches("notexample.com", host: "example.com"))
+        XCTAssertFalse(WebTabController.websiteDataRecordMatches("example.org", host: "example.com"))
+    }
+
+    @MainActor
+    func testSingleSiteCacheClearPreservesLoginDataTypes() {
+        let types = WebTabController.reloadCacheDataTypes
+        XCTAssertTrue(types.contains(WKWebsiteDataTypeDiskCache))
+        XCTAssertTrue(types.contains(WKWebsiteDataTypeMemoryCache))
+        XCTAssertTrue(types.contains(WKWebsiteDataTypeFetchCache))
+        XCTAssertTrue(types.contains(WKWebsiteDataTypeServiceWorkerRegistrations))
+        XCTAssertFalse(types.contains(WKWebsiteDataTypeCookies))
+        XCTAssertFalse(types.contains(WKWebsiteDataTypeLocalStorage))
+        XCTAssertFalse(types.contains(WKWebsiteDataTypeIndexedDBDatabases))
     }
 
     @MainActor

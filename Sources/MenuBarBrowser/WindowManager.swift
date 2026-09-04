@@ -6,6 +6,7 @@ import Combine
 final class WindowManager {
     private var controllers: [UUID: PinWindowController] = [:]
     private var monitor: Any?
+    private(set) var selectedPinID: UUID?
     private let pinStore: PinStore
     private let formWindow: FormWindowController
     weak var statusItemManager: StatusItemManager?
@@ -46,6 +47,7 @@ final class WindowManager {
 
     func toggle(pinID: UUID) {
         guard let controller = controller(for: pinID) else { return }
+        selectedPinID = pinID
         mbbTrace("切换站点面板 \(pinID)")
         if controller.isVisible {
             controller.hide()
@@ -58,6 +60,7 @@ final class WindowManager {
     }
 
     func show(pinID: UUID) {
+        selectedPinID = pinID
         if AppDelegate.sharedSettings.settings.statusIconMode == .collapsed {
             hideAll(except: pinID)
         }
@@ -74,6 +77,9 @@ final class WindowManager {
 
     /// 同步站点变化：清理已删除站点的控制器。
     func sync(with pins: [Pin]) {
+        if let selectedPinID, !pins.contains(where: { $0.id == selectedPinID }) {
+            self.selectedPinID = nil
+        }
         for dead in controllers.keys where !pins.contains(where: { $0.id == dead }) {
             controllers[dead]?.closeForRemoval()
             controllers[dead] = nil

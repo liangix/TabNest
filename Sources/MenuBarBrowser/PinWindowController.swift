@@ -108,6 +108,7 @@ final class PinWindowController: NSObject {
         ])
 
         webTab.onUpdate = { [weak self] in self?.refreshState() }
+        panelModel.onRetry = { [weak self] in self?.hardReload() }
         // 页面背景色采样 → 箭头底色融合
         webTab.onPageBackgroundColor = { [weak self] color in
             guard let self,
@@ -277,6 +278,7 @@ final class PinWindowController: NSObject {
         panel.onZoomOut = nil
         panel.onResetZoom = nil
         hostingView?.rootView = AnyView(EmptyView())
+        panelModel.onRetry = nil
         hostingView?.removeFromSuperview()
         hostingView = nil
         glassRoot.subviews.forEach { $0.removeFromSuperview() }
@@ -290,6 +292,7 @@ final class PinWindowController: NSObject {
 
     func reload()      { webTab.webView.reload() }
     func hardReload()  { webTab.reloadApplyingUserAgent(for: currentPin) }
+    func clearCacheAndReload() { webTab.clearCacheAndReload(for: currentPin) }
     func goBack()      { webTab.webView.goBack() }
     func goForward()   { webTab.webView.goForward() }
 
@@ -327,10 +330,11 @@ final class PinWindowController: NSObject {
         panelModel.state = TabState(
             title: wv.title?.isEmpty == false ? wv.title! : (wv.url?.host ?? L10n.text(.loading)),
             urlString: wv.url?.absoluteString ?? "",
-            isLoading: wv.isLoading,
-            progress: wv.estimatedProgress,
+            isLoading: wv.isLoading || webTab.isClearingCache,
+            progress: webTab.isClearingCache ? 0 : wv.estimatedProgress,
             canGoBack: wv.canGoBack,
-            canGoForward: wv.canGoForward
+            canGoForward: wv.canGoForward,
+            loadErrorMessage: webTab.loadErrorMessage
         )
     }
 

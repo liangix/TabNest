@@ -21,6 +21,9 @@ final class WebTabController: NSObject {
     private var isMuted = false
     /// 取消尚未提交的延迟导航，避免连续编辑 UA/地址时旧请求覆盖最新配置。
     private var navigationRevision: UInt = 0
+    private var webContentRecoveryAttempts = 0
+    private(set) var isClearingCache = false
+    private(set) var loadErrorMessage: String?
     private(set) var isStopped = false
 
     init(pin: Pin) {
@@ -192,7 +195,7 @@ final class WebTabController: NSObject {
         guard interval > 0 else { return }
         autoRefreshTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated {
-                guard let self, self.isVisible else { return } // 仅刷新当前可见标签
+                guard let self, self.isVisible, !self.isClearingCache else { return } // 仅刷新当前可见标签
                 self.webView.reload()
             }
         }
@@ -213,8 +216,72 @@ final class WebTabController: NSObject {
         loadFresh(url)
     }
 
+    /// 清除当前站点的 WebKit 缓存与 Service Worker 后，从源站重新请求。
+    ///
+    /// 刻意保留 Cookie、LocalStorage 和 IndexedDB，避免“修复白屏”顺带让用户退出登录。
+    /// WKWebsiteDataStore 的记录按站点域名归组，因此同一主域名下的其他 Tab 也会共享这次清理。
+    func clearCacheAndReload(for pin: Pin) {
+        guard let url = webView.url ?? pin.url else { return }
+        guard let host = url.host?.lowercased(), !host.isEmpty else {
+            loadFresh(url)
+            return
+        }
+
+        navigationRevision &+= 1
+        let revision = navigationRevision
+        isClearingCache = true
+        loadErrorMessage = nil
+        pendingIconSignature = ""
+        webView.stopLoading()
+        onUpdate?()
+
+        let dataStore = webView.configuration.websiteDataStore
+        let dataTypes = Self.reloadCacheDataTypes
+        dataStore.fetchDataRecords(ofTypes: dataTypes) { [weak self] records in
+            guard let self,
+                  !self.isStopped,
+                  self.navigationRevision == revision else { return }
+
+            let matchingRecords = records.filter {
+                Self.websiteDataRecordMatches($0.displayName, host: host)
+            }
+            let reload: () -> Void = { [weak self] in
+                guard let self,
+                      !self.isStopped,
+                      self.navigationRevision == revision else { return }
+                self.isClearingCache = false
+                self.loadFresh(url)
+            }
+
+            guard !matchingRecords.isEmpty else {
+                reload()
+                return
+            }
+            dataStore.removeData(ofTypes: dataTypes, for: matchingRecords, completionHandler: reload)
+        }
+    }
+
+    static let reloadCacheDataTypes: Set<String> = [
+        WKWebsiteDataTypeDiskCache,
+        WKWebsiteDataTypeMemoryCache,
+        WKWebsiteDataTypeFetchCache,
+        WKWebsiteDataTypeServiceWorkerRegistrations,
+    ]
+
+    /// WKWebsiteDataRecord.displayName 通常是 Public Suffix 归组后的主域名。
+    static func websiteDataRecordMatches(_ displayName: String, host: String) -> Bool {
+        let record = displayName.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "."))
+        let normalizedHost = host.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "."))
+        guard !record.isEmpty, !normalizedHost.isEmpty else { return false }
+        return record == normalizedHost
+            || normalizedHost.hasSuffix("." + record)
+            || record.hasSuffix("." + normalizedHost)
+    }
+
     func navigate(to url: URL) {
         navigationRevision &+= 1
+        isClearingCache = false
+        loadErrorMessage = nil
         pendingIconSignature = ""
         webView.load(URLRequest(url: url))
     }
@@ -228,6 +295,8 @@ final class WebTabController: NSObject {
     private func loadFresh(_ url: URL) {
         navigationRevision &+= 1
         let revision = navigationRevision
+        isClearingCache = false
+        loadErrorMessage = nil
         pendingIconSignature = ""
         webView.stopLoading()
 
@@ -361,6 +430,7 @@ final class WebTabController: NSObject {
         guard !isStopped else { return }
         isStopped = true
         navigationRevision &+= 1
+        isClearingCache = false
 
         observers.forEach { $0.invalidate() }
         observers.removeAll()
@@ -386,6 +456,16 @@ final class WebTabController: NSObject {
 }
 
 extension WebTabController: WKNavigationDelegate {
+    func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+        loadErrorMessage = nil
+        onUpdate?()
+    }
+
+    func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+        loadErrorMessage = nil
+        onUpdate?()
+    }
+
     func webView(_ webView: WKWebView,
                  decide policy: WKNavigationAction,
                  decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
@@ -398,6 +478,8 @@ extension WebTabController: WKNavigationDelegate {
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        loadErrorMessage = nil
+        webContentRecoveryAttempts = 0
         onUpdate?()
         extractFavicon()
         samplePageBackgroundColor()
@@ -411,12 +493,41 @@ extension WebTabController: WKNavigationDelegate {
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        recordNavigationFailure(error)
         onUpdate?()
     }
 
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!,
                  withError error: Error) {
+        recordNavigationFailure(error)
         onUpdate?()
+    }
+
+    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        guard !isStopped else { return }
+        let currentURL = webView.url?.absoluteString ?? "unknown"
+        mbbTrace("WebContent 进程意外终止：\(currentURL)")
+        loadErrorMessage = L10n.text(.webProcessTerminated)
+        onUpdate?()
+
+        // WebKit 偶发崩溃时自动恢复一次；若同一页面持续崩溃，则保留错误层供用户手动处理。
+        guard webContentRecoveryAttempts == 0,
+              let url = webView.url else { return }
+        webContentRecoveryAttempts += 1
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+            guard let self, !self.isStopped else { return }
+            self.loadFresh(url)
+        }
+    }
+
+    private func recordNavigationFailure(_ error: Error) {
+        let nsError = error as NSError
+        // stopLoading()、快速改地址和 UA 切换都会产生取消错误，不应覆盖新导航。
+        guard !(nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled) else {
+            return
+        }
+        mbbTrace("网页加载失败：\(nsError.domain)(\(nsError.code)) \(nsError.localizedDescription)")
+        loadErrorMessage = nsError.localizedDescription
     }
 }
 

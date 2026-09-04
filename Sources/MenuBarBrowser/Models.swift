@@ -8,6 +8,8 @@ struct TabState: Equatable {
     var progress: Double = 0
     var canGoBack = false
     var canGoForward = false
+    /// 主导航失败时显示可恢复的错误层，避免 WKWebView 只留下白屏。
+    var loadErrorMessage: String?
 }
 
 enum UserAgentMode: String, Codable, CaseIterable, Identifiable {

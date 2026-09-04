@@ -5,6 +5,7 @@ import AppKit
 final class PinPanelModel: ObservableObject {
     @Published var state = TabState()
     let webView: NSView
+    var onRetry: (() -> Void)?
 
     init(webView: NSView) {
         self.webView = webView
@@ -24,6 +25,28 @@ struct PinPanelRootView: View {
                     .progressViewStyle(.linear)
                     .frame(height: 2)
                     .tint(.accentColor)
+            }
+
+            if let message = model.state.loadErrorMessage {
+                VStack(spacing: 10) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.system(size: 24, weight: .medium))
+                        .foregroundColor(.secondary)
+                    Text(L10n.text(.webLoadFailedTitle))
+                        .font(.headline)
+                    Text(message)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(4)
+                    Button(L10n.text(.webRetry)) { model.onRetry?() }
+                        .keyboardShortcut(.defaultAction)
+                }
+                .padding(24)
+                .frame(maxWidth: 360)
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
+                .shadow(color: .black.opacity(0.12), radius: 12, y: 5)
+                .padding(24)
             }
         }
         .frame(minWidth: 340, minHeight: 270)

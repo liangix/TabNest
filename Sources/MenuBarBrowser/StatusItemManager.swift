@@ -169,7 +169,8 @@ final class StatusItemManager: NSObject {
 
         if collapsedItem?.button === sender {
             if isRightClick {
-                popUpMenu(for: collapsedItem, menu: buildMenu(for: nil))
+                // 收拢态仍需能操作刚选中的单个 Tab（清缓存、静音、关闭等）。
+                popUpMenu(for: collapsedItem, menu: buildMenu(for: registry?.selectedPinID))
             } else {
                 popUpMenu(for: collapsedItem, menu: buildCollapsedTabsMenu())
             }
@@ -279,6 +280,8 @@ final class StatusItemManager: NSObject {
 
         if let pin = pinID.flatMap({ pinStore.pin(with: $0) }) {
             add(L10n.text(.menuReload), action: #selector(menuReload(_:)), represented: pin.id)
+            add(L10n.text(.menuClearCacheAndReload),
+                action: #selector(menuClearCacheAndReload(_:)), represented: pin.id)
             menu.addItem(buildPageZoomMenuItem(for: pin))
             add(pin.isMuted ? L10n.text(.menuUnmute) : L10n.text(.menuMute),
                 action: #selector(menuToggleMute(_:)), represented: pin.id)
@@ -386,6 +389,10 @@ final class StatusItemManager: NSObject {
     @objc private func menuReload(_ sender: NSMenuItem) {
         guard let id = uuid(from: sender) else { return }
         registry?.controller(for: id)?.reload()
+    }
+    @objc private func menuClearCacheAndReload(_ sender: NSMenuItem) {
+        guard let id = uuid(from: sender) else { return }
+        registry?.controller(for: id)?.clearCacheAndReload()
     }
     @objc private func menuToggleMute(_ sender: NSMenuItem) {
         guard let id = uuid(from: sender) else { return }
