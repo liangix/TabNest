@@ -121,9 +121,9 @@ final class WebNotificationTests: XCTestCase {
         for flipped in [true, false] {
             let frame = UnreadDotView.badgeFrame(in: bounds, isFlipped: flipped)
             XCTAssertEqual(frame.size, NSSize(width: 8, height: 8))
-            XCTAssertEqual(frame.maxX, bounds.maxX - 1)
+            XCTAssertEqual(frame.maxX, bounds.maxX)
             XCTAssertEqual(flipped ? frame.maxY : frame.minY,
-                           flipped ? bounds.maxY - 1 : bounds.minY + 1)
+                           flipped ? bounds.maxY - 3 : bounds.minY + 3)
             XCTAssertTrue(bounds.contains(frame))
         }
         XCTAssertEqual(NotificationToast.displayDuration, 3)

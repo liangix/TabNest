@@ -108,6 +108,7 @@ TabNest 是一个原生 macOS 菜单栏浏览器。每个网页拥有独立的�
 
 - 登录状态和站点配置保存在本机，不上传到 TabNest 服务；项目本身不包含远程后端。
 - 所有 WebView 使用系统 `WKWebsiteDataStore` 保存 Cookie 和网站数据。
+- 为兼容用户指定的 HTTP 网站，网页视图允许 ATS 例外；应用自身的网络请求仍采用默认 ATS 保护。HTTP 内容不加密，此配置不绕过 HTTPS 证书验证或 WebKit 的其他安全限制。
 - 网页只能从 HTTPS 来源申请麦克风；每次请求都会显示来源确认，摄像头请求默认拒绝。
 - 麦克风系统授权可在“系统设置 → 隐私与安全性 → 麦克风”中撤销。
 - 网页尝试唤起未安装的外部 App Scheme 时会被拦截，避免出现系统 URL 弹窗。
@@ -157,18 +158,18 @@ open "/Applications/TabNest.app"
 构建通用架构 DMG：
 
 ```bash
-TABNEST_VERSION=1.0.3 ./scripts/make_dmg.sh release
+TABNEST_VERSION=1.0.4 ./scripts/make_dmg.sh release
 ```
 
 输出文件：
 
-- `dist/TabNest-1.0.3.dmg`
-- `dist/TabNest-1.0.3.dmg.sha256`
+- `dist/TabNest-1.0.4.dmg`
+- `dist/TabNest-1.0.4.dmg.sha256`
 
 两个文件位于同一目录时可验证下载完整性：
 
 ```bash
-shasum -a 256 -c TabNest-1.0.3.dmg.sha256
+shasum -a 256 -c TabNest-1.0.4.dmg.sha256
 ```
 
 ## Release 流水线
@@ -182,8 +183,8 @@ shasum -a 256 -c TabNest-1.0.3.dmg.sha256
 5. 创建 GitHub Release 并上传两个文件。
 
 ```bash
-git tag v1.0.3
-git push origin v1.0.3
+git tag v1.0.4
+git push origin v1.0.4
 ```
 
 也可以从 GitHub Actions 页面手动运行，并指定符合语义化版本格式的标签。

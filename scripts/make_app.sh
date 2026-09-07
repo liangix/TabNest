@@ -7,7 +7,7 @@ APP_NAME="TabNest"
 DISPLAY_NAME="TabNest — Menu Bar Browser"
 BUNDLE_ID="com.menubar.browser"
 CONFIG="${1:-release}"
-VERSION="${TABNEST_VERSION:-1.0.3}"
+VERSION="${TABNEST_VERSION:-1.0.4}"
 BUILD_NUMBER="${TABNEST_BUILD_NUMBER:-1}"
 APP_DIR="dist/${APP_NAME}.app"
 ICON_SOURCE="Resources/AppIcon.png"
@@ -88,12 +88,25 @@ cat > "${APP_DIR}/Contents/Info.plist" <<PLIST
     <key>LSMinimumSystemVersion</key><string>13.0</string>
     <key>LSUIElement</key><true/>
     <key>NSHighResolutionCapable</key><true/>
+    <key>NSAppTransportSecurity</key>
+    <dict>
+        <!-- User-selected websites may use HTTP. Keep native URLSession requests protected. -->
+        <key>NSAllowsArbitraryLoadsInWebContent</key><true/>
+    </dict>
     <key>NSMicrophoneUsageDescription</key>
     <string>Allow websites you approve to use the microphone for recording, voice input, or calls.</string>
     <key>NSHumanReadableCopyright</key><string>MIT License</string>
 </dict>
 </plist>
 PLIST
+
+# Validate the packaged policy, which is not exercised by SwiftPM's test host.
+plutil -lint "${APP_DIR}/Contents/Info.plist"
+[[ "$(/usr/libexec/PlistBuddy -c 'Print :NSAppTransportSecurity:NSAllowsArbitraryLoadsInWebContent' "${APP_DIR}/Contents/Info.plist")" == "true" ]]
+if /usr/libexec/PlistBuddy -c 'Print :NSAppTransportSecurity:NSAllowsArbitraryLoads' "${APP_DIR}/Contents/Info.plist" >/dev/null 2>&1; then
+    echo "Unexpected global ATS override in packaged app" >&2
+    exit 1
+fi
 
 cat > "${APP_DIR}/Contents/PkgInfo" <<PKG
 APPL????

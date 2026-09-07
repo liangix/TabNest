@@ -127,9 +127,9 @@ private struct NotificationToastView: View {
 final class UnreadDotView: NSView {
     static func badgeFrame(in bounds: NSRect, isFlipped: Bool) -> NSRect {
         let side: CGFloat = 8
-        let inset: CGFloat = 1
-        return NSRect(x: bounds.maxX - inset - side,
-                      y: isFlipped ? bounds.maxY - inset - side : bounds.minY + inset,
+        let bottomInset: CGFloat = 3
+        return NSRect(x: bounds.maxX - side,
+                      y: isFlipped ? bounds.maxY - bottomInset - side : bounds.minY + bottomInset,
                       width: side, height: side)
     }
 
