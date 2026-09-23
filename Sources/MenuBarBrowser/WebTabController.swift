@@ -13,21 +13,6 @@ final class WebTabController: NSObject {
     /// 状态变化时回调（主线程）
     var onUpdate: (() -> Void)?
 
-    /// 页面顶部背景色采样完成回调（用于箭头底色融合）
-    var onPageBackgroundColor: ((NSColor?) -> Void)?
-    var backgroundSampleXFraction: CGFloat = 0.5 {
-        didSet {
-            if backgroundTrackingEnabled, abs(backgroundSampleXFraction - oldValue) > 0.001 {
-                samplePageBackgroundColor()
-            }
-        }
-    }
-    private var backgroundSampleInFlight = false
-    private var backgroundSamplePending = false
-    private var backgroundDocumentRevision: UInt = 0
-    private let pageAppearanceObserver = PageAppearanceObserver()
-    private(set) var backgroundTrackingEnabled = false
-
     private var observers: [NSKeyValueObservation] = []
     private var pendingIconSignature: String = ""
     private var faviconExtractionWorkItem: DispatchWorkItem?
@@ -55,13 +40,6 @@ final class WebTabController: NSObject {
 
         self.webView = WKWebView(frame: .zero, configuration: config)
         super.init()
-
-        pageAppearanceObserver.onChange = { [weak self] in
-            guard let self, self.backgroundTrackingEnabled else { return }
-            self.samplePageBackgroundColor()
-        }
-        config.userContentController.add(pageAppearanceObserver, contentWorld: .defaultClient,
-                                         name: PageAppearanceObserver.handlerName)
 
         notificationBridge.webView = webView
         config.userContentController.addScriptMessageHandler(notificationBridge, contentWorld: .page,
@@ -207,15 +185,27 @@ final class WebTabController: NSObject {
         let source = """
         (function(){
           window.__mbbMuted = \(muted ? "true" : "false");
+          function applyTo(root) {
+            if (root.nodeType !== Node.ELEMENT_NODE) return;
+            function apply(el) {
+              const muted = !!window.__mbbMuted;
+              if (el.muted !== muted) el.muted = muted;
+            }
+            if (root.matches('video,audio')) apply(root);
+            root.querySelectorAll('video,audio').forEach(apply);
+          }
           window.__mbbApplyMuted = function(){
-            document.querySelectorAll('video,audio').forEach(function(el){
-              el.muted = !!window.__mbbMuted;
-            });
+            if (document.documentElement) applyTo(document.documentElement);
           };
           function start(){
             window.__mbbApplyMuted();
             if (!window.__mbbMuteObserver) {
-              window.__mbbMuteObserver = new MutationObserver(window.__mbbApplyMuted);
+              // Editor text changes must not trigger a scan of the entire page.
+              window.__mbbMuteObserver = new MutationObserver(function(records){
+                for (const record of records) {
+                  for (const node of record.addedNodes) applyTo(node);
+                }
+              });
               window.__mbbMuteObserver.observe(document.documentElement, {childList:true, subtree:true});
             }
           }
@@ -352,84 +342,6 @@ final class WebTabController: NSObject {
         return ["http", "https", "about", "blob", "data"].contains(scheme)
     }
 
-    /// Sample beneath the arrow, including translucent layers. Images/gradients use native material.
-    func samplePageBackgroundColor() {
-        guard !isStopped else { return }
-        guard !backgroundSampleInFlight else {
-            backgroundSamplePending = backgroundTrackingEnabled
-            return
-        }
-        backgroundSampleInFlight = true
-        let revision = backgroundDocumentRevision
-        let fraction = backgroundSampleXFraction.isFinite ? min(max(backgroundSampleXFraction, 0), 1) : 0.5
-        let js = """
-        (() => {
-          const x = Math.min(innerWidth - 1, Math.max(0, innerWidth * \(fraction)));
-          const canvas = document.createElement('canvas');
-          canvas.width = canvas.height = 1;
-          const ctx = canvas.getContext('2d', {willReadFrequently: true});
-          if (!ctx) return null;
-          let r = 0, g = 0, b = 0, remaining = 1;
-          for (const el of document.elementsFromPoint(x, 1)) {
-            const style = getComputedStyle(el);
-            // A flat CSS color cannot faithfully represent these painted surfaces.
-            if (style.backgroundImage !== 'none' || Number(style.opacity) !== 1 ||
-                style.mixBlendMode !== 'normal' || style.filter !== 'none' ||
-                (style.backdropFilter || style.webkitBackdropFilter || 'none') !== 'none' ||
-                ['IMG', 'VIDEO', 'CANVAS', 'IFRAME', 'SVG'].includes(el.tagName.toUpperCase())) return null;
-            ctx.clearRect(0, 0, 1, 1);
-            ctx.fillStyle = style.backgroundColor;
-            ctx.fillRect(0, 0, 1, 1);
-            const color = ctx.getImageData(0, 0, 1, 1).data;
-            const alpha = color[3] / 255;
-            r += color[0] * alpha * remaining;
-            g += color[1] * alpha * remaining;
-            b += color[2] * alpha * remaining;
-            remaining *= 1 - alpha;
-            if (remaining < 0.001) return [r / 255, g / 255, b / 255];
-          }
-          return null;
-        })()
-        """
-        // Keep sampling independent of website overrides of JavaScript built-ins.
-        webView.evaluateJavaScript(js, in: nil, in: .defaultClient) { [weak self] result in
-            guard let self else { return }
-            self.backgroundSampleInFlight = false
-            defer {
-                if self.backgroundSamplePending {
-                    self.backgroundSamplePending = false
-                    if self.backgroundTrackingEnabled { self.samplePageBackgroundColor() }
-                }
-            }
-            guard !self.isStopped, self.backgroundDocumentRevision == revision else { return }
-            if case .success(let value) = result, let rgb = value as? [Double], rgb.count == 3 {
-                self.onPageBackgroundColor?(NSColor(srgbRed: rgb[0], green: rgb[1], blue: rgb[2], alpha: 1))
-            } else {
-                self.onPageBackgroundColor?(nil)
-            }
-        }
-    }
-
-    func setBackgroundTrackingEnabled(_ enabled: Bool) {
-        guard !isStopped, backgroundTrackingEnabled != enabled else { return }
-        backgroundTrackingEnabled = enabled
-        backgroundDocumentRevision &+= 1 // Discard any read that started before hiding/reopening.
-        backgroundSamplePending = false
-        if enabled {
-            installBackgroundObservation()
-        } else {
-            webView.evaluateJavaScript("window.__tabNestPageAppearance?.setActive(false)",
-                                       in: nil, in: .defaultClient, completionHandler: nil)
-        }
-    }
-
-    private func installBackgroundObservation() {
-        guard backgroundTrackingEnabled, !isStopped else { return }
-        webView.evaluateJavaScript(PageAppearanceObserver.installScript +
-                                   "window.__tabNestPageAppearance.setActive(true);",
-                                   in: nil, in: .defaultClient, completionHandler: nil)
-    }
-
     /// 解析 CSS 颜色字符串（支持 rgb/rgba/#hex）
     static func color(fromCSS css: String) -> NSColor? {
         let s = css.replacingOccurrences(of: " ", with: "").lowercased()
@@ -512,11 +424,7 @@ final class WebTabController: NSObject {
 
     func stop() {
         guard !isStopped else { return }
-        setBackgroundTrackingEnabled(false)
         isStopped = true
-        pageAppearanceObserver.onChange = nil
-        webView.configuration.userContentController.removeScriptMessageHandler(
-            forName: PageAppearanceObserver.handlerName, contentWorld: .defaultClient)
         notificationBridge.stop()
         webView.configuration.userContentController.removeScriptMessageHandler(
             forName: WebNotificationBridge.handlerName, contentWorld: .page)
@@ -530,7 +438,6 @@ final class WebTabController: NSObject {
         autoRefreshTimer?.invalidate()
         autoRefreshTimer = nil
         onUpdate = nil
-        onPageBackgroundColor = nil
 
         // 关闭 Tab 的语义是销毁页面，而非仅隐藏窗口。先使用 WebKit 的媒体 API
         // 立即终止音频、视频、全屏和画中画，再停止网络并清空页面作为兜底。
@@ -553,9 +460,6 @@ extension WebTabController: WKNavigationDelegate {
     }
 
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
-        backgroundDocumentRevision &+= 1
-        onPageBackgroundColor?(nil)
-        installBackgroundObservation()
         notificationBridge.invalidateDocument()
         loadErrorMessage = nil
         onUpdate?()
@@ -577,8 +481,6 @@ extension WebTabController: WKNavigationDelegate {
         webContentRecoveryAttempts = 0
         onUpdate?()
         extractFavicon()
-        installBackgroundObservation()
-        if backgroundTrackingEnabled { samplePageBackgroundColor() }
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
             self?.extractFavicon()
         }

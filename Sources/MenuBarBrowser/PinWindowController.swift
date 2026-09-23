@@ -29,8 +29,7 @@ final class PinWindowController: NSObject {
     private let glassRoot = GlassPanelRootView(frame: NSRect(x: 0, y: 0, width: 560, height: 694))
     private let dragZone = ArrowDragZone(frame: NSRect(x: 235, y: 0, width: 90, height: 12))
     private let backdropView = PanelBackdrop.make()
-    private let arrowBackdrop = AdaptiveArrowBackdropView(frame: .zero)
-    private var backgroundSamplingTimer: Timer?
+    private let arrowBackdrop = ArrowBackdropView(frame: .zero)
     private let resizeOverlay = ResizeOverlayView(frame: .zero)
     private weak var hostingView: NSHostingView<AnyView>?
     private weak var statusItem: NSStatusItem?
@@ -142,10 +141,6 @@ final class PinWindowController: NSObject {
         panelModel.onPermissionDecision = { [weak self] id, permission in
             self?.webTab.notificationBridge.resolvePermissionRequest(id: id, permission: permission)
         }
-        // 页面背景色采样 → 箭头底色融合
-        webTab.onPageBackgroundColor = { [weak self] color in
-            self?.arrowBackdrop.pageColor = color
-        }
         refreshState()
 
         panel.onEscape = { [weak self] in self?.hide() }
@@ -224,7 +219,6 @@ final class PinWindowController: NSObject {
         guard placeUnderStatusItem(resetSize: false) else {
             // Never expose the initial (0, 0) frame or an obsolete icon's position.
             panel.orderOut(nil)
-            stopBackgroundSampling()
             guard attempt < 100 else {
                 wantsVisible = false
                 statusItem?.button?.highlight(false)
@@ -242,7 +236,6 @@ final class PinWindowController: NSObject {
         panel.alphaValue = 0
         panel.orderFrontRegardless()
         panel.makeKey()
-        startBackgroundSampling()
         NSAnimationContext.runAnimationGroup { ctx in
             ctx.duration = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? 0 : 0.12
             panel.animator().alphaValue = 1
@@ -255,7 +248,6 @@ final class PinWindowController: NSObject {
     }
 
     func hide() {
-        stopBackgroundSampling()
         wantsVisible = false
         presentationRevision += 1
         let revision = presentationRevision
@@ -292,7 +284,6 @@ final class PinWindowController: NSObject {
             return
         }
         glassRoot.arrowX = PopoverGeometry.arrowPosition(anchorX: iconFrame.midX, frame: panel.frame)
-        webTab.backgroundSampleXFraction = glassRoot.arrowX / max(panel.frame.width, 1)
 
         // 拖拽热区只覆盖箭头附近，避免挡住网页顶部内容
         dragZone.frame = CGRect(x: glassRoot.arrowX - 45, y: 0,
@@ -335,7 +326,6 @@ final class PinWindowController: NSObject {
     func closeForRemoval() {
         guard !isClosed else { return }
         isClosed = true
-        stopBackgroundSampling()
         wantsVisible = false
         presentationRevision += 1
         anchorRetry?.cancel()
@@ -366,28 +356,6 @@ final class PinWindowController: NSObject {
     }
 
     // MARK: - 页面动作（供菜单/快捷键调用）
-
-    private func startBackgroundSampling() {
-        guard backgroundSamplingTimer == nil else { return }
-        webTab.setBackgroundTrackingEnabled(true)
-        webTab.samplePageBackgroundColor()
-        // Events handle scrolling/theme changes; low-frequency reads cover unobservable CSS changes.
-        let timer = Timer(timeInterval: PageAppearanceObserver.fallbackInterval, repeats: true) { [weak self] _ in
-            MainActor.assumeIsolated {
-                guard let self, self.wantsVisible, self.panel.isVisible else { return }
-                self.webTab.samplePageBackgroundColor()
-            }
-        }
-        timer.tolerance = 0.3
-        backgroundSamplingTimer = timer
-        RunLoop.main.add(timer, forMode: .common)
-    }
-
-    private func stopBackgroundSampling() {
-        webTab.setBackgroundTrackingEnabled(false)
-        backgroundSamplingTimer?.invalidate()
-        backgroundSamplingTimer = nil
-    }
 
     func reload()      { webTab.webView.reload() }
     func hardReload()  { webTab.reloadApplyingUserAgent(for: currentPin) }
