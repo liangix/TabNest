@@ -158,18 +158,18 @@ open "/Applications/TabNest.app"
 构建通用架构 DMG：
 
 ```bash
-TABNEST_VERSION=1.0.4 ./scripts/make_dmg.sh release
+TABNEST_VERSION=1.0.5 ./scripts/make_dmg.sh release
 ```
 
 输出文件：
 
-- `dist/TabNest-1.0.4.dmg`
-- `dist/TabNest-1.0.4.dmg.sha256`
+- `dist/TabNest-1.0.5.dmg`
+- `dist/TabNest-1.0.5.dmg.sha256`
 
 两个文件位于同一目录时可验证下载完整性：
 
 ```bash
-shasum -a 256 -c TabNest-1.0.4.dmg.sha256
+shasum -a 256 -c TabNest-1.0.5.dmg.sha256
 ```
 
 ## Release 流水线
@@ -183,8 +183,8 @@ shasum -a 256 -c TabNest-1.0.4.dmg.sha256
 5. 创建 GitHub Release 并上传两个文件。
 
 ```bash
-git tag v1.0.4
-git push origin v1.0.4
+git tag v1.0.5
+git push origin v1.0.5
 ```
 
 也可以从 GitHub Actions 页面手动运行，并指定符合语义化版本格式的标签。
