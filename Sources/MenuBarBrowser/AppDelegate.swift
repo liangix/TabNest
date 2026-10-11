@@ -29,8 +29,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // 预设变化 → 同步全局快捷键；关闭的预设也可通过快捷键重新打开。
         pinStore.$presets
             .removeDuplicates()
-            .sink { presets in
-                HotkeyManager.shared.update(pins: presets)
+            .sink { [weak self] presets in
+                guard let self else { return }
+                HotkeyManager.shared.update(pins: presets + self.pinStore.pins.filter(\.isTemporary))
             }
             .store(in: &cancellables)
 
@@ -39,6 +40,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .removeDuplicates()
             .sink { [weak self] pins in
                 guard let self else { return }
+                HotkeyManager.shared.update(pins: self.pinStore.presets + pins.filter(\.isTemporary))
                 self.windowManager.sync(with: pins)
                 self.statusItemManager.sync(with: pins)
             }

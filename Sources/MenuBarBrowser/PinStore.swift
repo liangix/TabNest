@@ -35,7 +35,7 @@ final class PinStore: ObservableObject {
            let savedPresets = try? JSONDecoder().decode([Pin].self, from: data) {
             presets = savedPresets
             pins = savedTabs ?? []
-            for tab in pins where !presets.contains(where: { $0.id == tab.id }) {
+            for tab in pins where !tab.isTemporary && !presets.contains(where: { $0.id == tab.id }) {
                 presets.append(tab)
             }
         } else if let savedTabs {
@@ -77,6 +77,13 @@ final class PinStore: ObservableObject {
 
     @discardableResult
     func update(_ pin: Pin) -> Bool {
+        if let tabIndex = pins.firstIndex(where: { $0.id == pin.id && $0.isTemporary }) {
+            var tab = pin
+            tab.isTemporary = true
+            pins[tabIndex] = tab
+            persistTabs()
+            return true
+        }
         guard let presetIndex = presets.firstIndex(where: { $0.id == pin.id }) else { return false }
         guard !presets.contains(where: {
             $0.id != pin.id && $0.canonicalURLString == pin.canonicalURLString
@@ -87,6 +94,22 @@ final class PinStore: ObservableObject {
         }
         persistAll()
         return true
+    }
+
+    /// 每次显式打开都创建独立 Tab，即使目标地址已打开；不改变源站点或预设。
+    @discardableResult
+    func openLink(_ url: URL, from source: Pin) -> Pin? {
+        guard BrowserWebView.isBrowserURL(url) else { return nil }
+        var tab = Pin(name: url.host ?? source.name, urlString: url.absoluteString,
+                      userAgentMode: source.userAgentMode, customUserAgent: source.customUserAgent,
+                      pageZoom: source.pageZoom, isMuted: source.isMuted,
+                      hotkeyMode: .disabled)
+        tab.isTemporary = true
+        tab.notificationsEnabled = source.notificationsEnabled
+        pins.append(tab)
+        select(tab.id)
+        persistTabs()
+        return tab
     }
 
     /// 关闭 Tab，但保留站点预设。

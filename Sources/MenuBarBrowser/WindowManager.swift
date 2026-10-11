@@ -142,7 +142,7 @@ final class WindowManager {
     }
 
     func beginEdit(pinID: UUID) {
-        guard let pin = pinStore.preset(with: pinID) else { return }
+        guard let pin = pinStore.preset(with: pinID) ?? pinStore.pin(with: pinID) else { return }
         formWindow.presentEdit(pin)
     }
 
@@ -173,6 +173,11 @@ final class WindowManager {
         }
         let controller = PinWindowController(pin: pin, statusItem: item, pinStore: pinStore)
         controllers[pinID] = controller
+        (controller.webTab.webView as? BrowserWebView)?.openNewTab = { [weak self] url in
+            guard let self, let source = self.pinStore.pin(with: pinID),
+                  let tab = self.pinStore.openLink(url, from: source) else { return }
+            self.show(pinID: tab.id)
+        }
         controller.webTab.notificationBridge.onNotice = { [weak self] in self?.receiveNotification($0) }
         controller.webTab.notificationBridge.onClose = { [weak self] id, documentID in
             guard let self else { return }

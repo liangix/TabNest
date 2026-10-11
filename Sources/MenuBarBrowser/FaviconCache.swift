@@ -24,7 +24,7 @@ final class FaviconCache: ObservableObject {
 
     /// 页面声明了新图标时后台刷新；保留当前图标直到新图标加载成功，避免菜单栏闪烁。
     func refresh(pinID: UUID) {
-        guard let pin = PinStore.shared.preset(with: pinID) else { return }
+        guard let pin = PinStore.shared.preset(with: pinID) ?? PinStore.shared.pin(with: pinID) else { return }
         if let url = URL(string: pin.iconURLString),
            sourceURLs[pinID] == url.absoluteString,
            images[pinID] != nil {
@@ -40,7 +40,7 @@ final class FaviconCache: ObservableObject {
 
     /// WebView 已拿到页面声明的全部候选时按优先级尝试，成功前不改持久化地址。
     func refresh(pinID: UUID, candidateURLStrings: [String]) {
-        guard let pin = PinStore.shared.preset(with: pinID) else { return }
+        guard let pin = PinStore.shared.preset(with: pinID) ?? PinStore.shared.pin(with: pinID) else { return }
         let urls = Self.uniqueURLs(candidateURLStrings.compactMap(URL.init(string:)))
         guard !urls.isEmpty else { return }
         if let sourceURL = sourceURLs[pinID], images[pinID] != nil,

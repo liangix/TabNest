@@ -207,6 +207,7 @@ struct PinFormView: View {
             return
         }
 
+        candidate.isTemporary = editingPin?.isTemporary ?? false
         candidate.urlString = resolvedURL.absoluteString
         if candidate.name.isEmpty {
             candidate.name = resolvedURL.host ?? L10n.text(.formUnnamedSite)

@@ -94,6 +94,8 @@ struct SiteHotkey: Codable, Equatable {
 
 struct Pin: Identifiable, Codable, Equatable {
     var id: UUID = UUID()
+    /// 从链接打开的独立 Tab，不自动加入站点预设。
+    var isTemporary = false
     var name: String
     var urlString: String
     var userAgentMode: UserAgentMode = .system
@@ -139,7 +141,7 @@ struct Pin: Identifiable, Codable, Equatable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, name, urlString, userAgentMode, customUserAgent, refreshInterval, pageZoom
+        case id, isTemporary, name, urlString, userAgentMode, customUserAgent, refreshInterval, pageZoom
         case isMuted, iconURLString, hotkeyMode, customHotkey
         case notificationsEnabled, notificationPermissions
     }
@@ -166,6 +168,7 @@ struct Pin: Identifiable, Codable, Equatable {
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        isTemporary = try c.decodeIfPresent(Bool.self, forKey: .isTemporary) ?? false
         name = try c.decodeIfPresent(String.self, forKey: .name) ?? ""
         urlString = try c.decode(String.self, forKey: .urlString)
         userAgentMode = try c.decodeIfPresent(UserAgentMode.self, forKey: .userAgentMode) ?? .system

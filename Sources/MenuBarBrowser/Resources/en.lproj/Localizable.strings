@@ -77,6 +77,8 @@
 "menu.mute" = "Mute";
 "menu.unmute" = "Unmute";
 "menu.openInDefaultBrowser" = "Open in Default Browser";
+"menu.openLinkInDefaultBrowser" = "Open Link in Default Browser";
+"menu.openLinkInNewTab" = "Open Link in New Tab";
 "menu.editSite.ellipsis" = "Edit Site…";
 "menu.globalShortcut" = "Global Shortcut %@";
 "menu.closeSite" = "Close “%@”";

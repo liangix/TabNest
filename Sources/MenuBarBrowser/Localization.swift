@@ -96,6 +96,8 @@ enum L10nKey: String, CaseIterable {
     case menuMute = "menu.mute"
     case menuUnmute = "menu.unmute"
     case menuOpenInDefaultBrowser = "menu.openInDefaultBrowser"
+    case menuOpenLinkInDefaultBrowser = "menu.openLinkInDefaultBrowser"
+    case menuOpenLinkInNewTab = "menu.openLinkInNewTab"
     case menuEditSiteEllipsis = "menu.editSite.ellipsis"
     case menuGlobalShortcut = "menu.globalShortcut"
     case menuCloseSite = "menu.closeSite"

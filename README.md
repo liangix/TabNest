@@ -62,6 +62,8 @@ TabNest 是一个原生 macOS 菜单栏浏览器。每个网页拥有独立的�
 
 界面使用系统原生样式：macOS 26 / 27 使用 Liquid Glass 提醒和主操作按钮，macOS 13–15 回退为系统材质及标准按钮。支持深色模式、减少透明度、增强对比度和减少动态效果；网页自身保持原样，不额外覆盖玻璃效果。较旧 SDK 构建自动使用兼容样式，最低系统要求仍为 macOS 13。
 
+浮窗内普通点击链接会在浮窗中跳转（包括新窗口链接）；按住 **Command** 点击链接会在系统默认浏览器打开。链接右键菜单中的 **在新 Tab 中打开链接** 会创建并显示独立 Tab，保留原页面，不自动增加站点预设。网页右键菜单中的 **在默认浏览器打开** 打开当前页面；在链接上右键时，还可选择 **在默认浏览器打开链接**。
+
 ## 网页通知
 
 首次打开页面后，网站通过标准 `Notification.requestPermission()` 请求授权，再通过 `new Notification(...)` 发送通知。TabNest 在网页顶部显示非阻塞授权条，展示具体来源，可选择 **允许 / 拒绝 / 稍后**，不暂停网页交互。选择稍后或收起浮窗不保存决定；导航或关闭 Tab 会取消旧请求。授权按站点预设及精确来源（协议、域名、端口）保存，不会沿用到跨站跳转后的其他网站。请求授权需要在可见页面中由用户操作触发。
@@ -158,18 +160,18 @@ open "/Applications/TabNest.app"
 构建通用架构 DMG：
 
 ```bash
-TABNEST_VERSION=1.0.5 ./scripts/make_dmg.sh release
+TABNEST_VERSION=1.0.6 ./scripts/make_dmg.sh release
 ```
 
 输出文件：
 
-- `dist/TabNest-1.0.5.dmg`
-- `dist/TabNest-1.0.5.dmg.sha256`
+- `dist/TabNest-1.0.6.dmg`
+- `dist/TabNest-1.0.6.dmg.sha256`
 
 两个文件位于同一目录时可验证下载完整性：
 
 ```bash
-shasum -a 256 -c TabNest-1.0.5.dmg.sha256
+shasum -a 256 -c TabNest-1.0.6.dmg.sha256
 ```
 
 ## Release 流水线
@@ -183,8 +185,8 @@ shasum -a 256 -c TabNest-1.0.5.dmg.sha256
 5. 创建 GitHub Release 并上传两个文件。
 
 ```bash
-git tag v1.0.5
-git push origin v1.0.5
+git tag v1.0.6
+git push origin v1.0.6
 ```
 
 也可以从 GitHub Actions 页面手动运行，并指定符合语义化版本格式的标签。

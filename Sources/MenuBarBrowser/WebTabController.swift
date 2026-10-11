@@ -38,7 +38,12 @@ final class WebTabController: NSObject {
         prefs.allowsContentJavaScript = true
         config.defaultWebpagePreferences = prefs
 
-        self.webView = WKWebView(frame: .zero, configuration: config)
+        let browserWebView = BrowserWebView(frame: .zero, configuration: config)
+        self.webView = browserWebView
+        let linkHandler = BrowserLinkHandler()
+        linkHandler.webView = browserWebView
+        config.userContentController.add(linkHandler, contentWorld: .defaultClient,
+                                         name: BrowserWebView.linkHandlerName)
         super.init()
 
         notificationBridge.webView = webView
@@ -126,6 +131,7 @@ final class WebTabController: NSObject {
                                            notificationPin: Pin) {
         controller.removeAllUserScripts()
         controller.addUserScript(externalAppBlockingUserScript())
+        controller.addUserScript(BrowserWebView.linkUserScript())
         controller.addUserScript(muteUserScript(muted: muted))
         controller.addUserScript(WebNotificationBridge.userScript(for: notificationPin))
     }
@@ -425,9 +431,12 @@ final class WebTabController: NSObject {
     func stop() {
         guard !isStopped else { return }
         isStopped = true
+        (webView as? BrowserWebView)?.openNewTab = nil
         notificationBridge.stop()
         webView.configuration.userContentController.removeScriptMessageHandler(
             forName: WebNotificationBridge.handlerName, contentWorld: .page)
+        webView.configuration.userContentController.removeScriptMessageHandler(
+            forName: BrowserWebView.linkHandlerName, contentWorld: .defaultClient)
         navigationRevision &+= 1
         isClearingCache = false
 
@@ -460,6 +469,7 @@ extension WebTabController: WKNavigationDelegate {
     }
 
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+        (webView as? BrowserWebView)?.setContextLink(nil)
         notificationBridge.invalidateDocument()
         loadErrorMessage = nil
         onUpdate?()
@@ -470,6 +480,11 @@ extension WebTabController: WKNavigationDelegate {
                  decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
         if let url = policy.request.url, !Self.isAllowedWebURL(url) {
             mbbTrace("已阻止网页唤起外部 App：\(url.scheme ?? "unknown")")
+            decisionHandler(.cancel)
+        } else if policy.navigationType == .linkActivated,
+                  policy.modifierFlags.contains(.command),
+                  let url = policy.request.url, BrowserWebView.isBrowserURL(url) {
+            (webView as? BrowserWebView)?.openExternalURL(url)
             decisionHandler(.cancel)
         } else {
             decisionHandler(.allow)

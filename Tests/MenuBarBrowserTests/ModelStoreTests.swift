@@ -314,12 +314,13 @@ final class ModelStoreTests: XCTestCase {
         let controller = WebTabController(pin: Pin(name: "Test", urlString: ""))
         defer { controller.stop() }
 
-        XCTAssertEqual(controller.webView.configuration.userContentController.userScripts.count, 3)
+        XCTAssertEqual(controller.webView.configuration.userContentController.userScripts.count, 4)
         controller.setMuted(true)
         let scripts = controller.webView.configuration.userContentController.userScripts
-        XCTAssertEqual(scripts.count, 3)
+        XCTAssertEqual(scripts.count, 4)
         XCTAssertTrue(scripts.contains { $0.source.contains("__tabNestExternalSchemeGuardInstalled") })
         XCTAssertTrue(scripts.contains { $0.source.contains("TabNestNotification") })
+        XCTAssertTrue(scripts.contains { $0.source.contains("tabNestLinks") })
     }
 
     @MainActor
