@@ -23,15 +23,15 @@ final class BrowserLinkTests: XCTestCase {
         XCTAssertEqual(native.title, L10n.text(.menuOpenLinkInNewTab))
         XCTAssertEqual(ordinary.title, "Open Link")
         XCTAssertNil(ordinary.action)
-        XCTAssertFalse(view.validateMenuItem(native))
+        XCTAssertFalse(view.validateUserInterfaceItem(native))
         let url = try XCTUnwrap(URL(string: "https://example.com/path?q=1#fragment"))
         view.setContextLink(url)
-        XCTAssertTrue(view.validateMenuItem(native))
+        XCTAssertTrue(view.validateUserInterfaceItem(native))
         XCTAssertEqual(native.action, #selector(BrowserWebView.openInNewTab(_:)))
         view.openInNewTab(native)
         XCTAssertEqual(opened, [url])
         view.setContextLink(nil)
-        XCTAssertFalse(view.validateMenuItem(native))
+        XCTAssertFalse(view.validateUserInterfaceItem(native))
         view.openInNewTab(native)
         XCTAssertEqual(opened, [url])
         view.didCloseMenu(menu, with: nil)
@@ -204,7 +204,7 @@ final class BrowserLinkTests: XCTestCase {
         // Late context messages update the displayed item instead of using an old link.
         view.setContextLink(nil)
         XCTAssertTrue(item.isHidden)
-        XCTAssertFalse(view.validateMenuItem(item))
+        XCTAssertFalse(view.validateUserInterfaceItem(item))
         view.didCloseMenu(menu, with: nil)
         let nextMenu = NSMenu()
         view.willOpenMenu(nextMenu, with: event)
@@ -220,10 +220,11 @@ final class BrowserLinkTests: XCTestCase {
         view.openExternalURL = { _ in opened = true }
         for raw in ["javascript:alert(1)", "file:///tmp/test", "about:blank", "bilibili://test", "data:text/html,test"] {
             let item = NSMenuItem()
+            item.action = #selector(BrowserWebView.openInBrowser(_:))
             item.representedObject = URL(string: raw)
             view.openInBrowser(item)
             XCTAssertFalse(opened)
-            XCTAssertFalse(view.validateMenuItem(item))
+            XCTAssertFalse(view.validateUserInterfaceItem(item))
         }
         XCTAssertTrue(view.configuration.userContentController.userScripts.contains {
             $0.source.contains("event.metaKey") && !$0.isForMainFrameOnly

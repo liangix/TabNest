@@ -3,7 +3,7 @@ import WebKit
 
 /// 保留 WebKit 原生右键菜单，并补充系统默认浏览器入口。
 @MainActor
-final class BrowserWebView: WKWebView, NSMenuItemValidation {
+final class BrowserWebView: WKWebView {
     static let linkHandlerName = "tabNestLinks"
     var openExternalURL: (URL) -> Void = { NSWorkspace.shared.open($0) }
     var openNewTab: ((URL) -> Void)?
@@ -99,9 +99,13 @@ final class BrowserWebView: WKWebView, NSMenuItemValidation {
         openExternalURL(url)
     }
 
-    func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
-        if menuItem.action == #selector(openInNewTab(_:)), openNewTab == nil { return false }
-        guard let url = menuItem.representedObject as? URL else { return false }
+    override func validateUserInterfaceItem(_ item: NSValidatedUserInterfaceItem) -> Bool {
+        guard item.action == #selector(openInBrowser(_:)) || item.action == #selector(openInNewTab(_:)) else {
+            // 复制、粘贴、撤销等命令必须使用 WebKit 根据当前焦点与选区给出的判断。
+            return super.validateUserInterfaceItem(item)
+        }
+        if item.action == #selector(openInNewTab(_:)), openNewTab == nil { return false }
+        guard let url = (item as? NSMenuItem)?.representedObject as? URL else { return false }
         return Self.isBrowserURL(url)
     }
 
